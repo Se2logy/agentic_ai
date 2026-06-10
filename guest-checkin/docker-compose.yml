@@ -6,7 +6,7 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=mysql+pymysql://guestcheckin:guestcheckin@mysql:3306/guestcheckin
+      - DATABASE_URL=mysql+pymysql://guestcheckin:guest_checkin@mysql:3306/guestcheckin
       - OLLAMA_BASE_URL=http://host.docker.internal:11434
       - OLLAMA_MODEL=llama3.1:8b
       - SMTP_HOST=mailhog

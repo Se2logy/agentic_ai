@@ -42,6 +42,7 @@ def upgrade() -> None:
             server_default=sa.func.now(),
             onupdate=sa.func.now(),
         ),
+        if_not_exists=True,
     )
     op.create_index("ix_reservations_booking_ref", "reservations", ["booking_reference"])
 
@@ -62,6 +63,7 @@ def upgrade() -> None:
             server_default=sa.func.now(),
             onupdate=sa.func.now(),
         ),
+        if_not_exists=True,
     )
     op.create_index("ix_guests_email", "guests", ["email"])
 
@@ -92,6 +94,7 @@ def upgrade() -> None:
             server_default=sa.func.now(),
             onupdate=sa.func.now(),
         ),
+        if_not_exists=True,
     )
     op.create_index("ix_sessions_token", "sessions", ["session_token"])
 
@@ -109,6 +112,7 @@ def upgrade() -> None:
         sa.Column("accepted", sa.Boolean(), nullable=False),
         sa.Column("guest_response", sa.String(500), nullable=True),
         sa.Column("created_at", sa.DateTime(), server_default=sa.func.now()),
+        if_not_exists=True,
     )
 
     # --- otp_verifications ---
@@ -128,6 +132,7 @@ def upgrade() -> None:
         sa.Column("max_attempts", sa.Integer(), server_default="3"),
         sa.Column("expires_at", sa.DateTime(), nullable=False),
         sa.Column("created_at", sa.DateTime(), server_default=sa.func.now()),
+        if_not_exists=True,
     )
     op.create_index("ix_otp_code", "otp_verifications", ["otp_code"])
 
@@ -146,6 +151,7 @@ def upgrade() -> None:
         sa.Column("payment_status", sa.String(20), server_default="pending"),
         sa.Column("payment_reference", sa.String(255), nullable=True),
         sa.Column("created_at", sa.DateTime(), server_default=sa.func.now()),
+        if_not_exists=True,
     )
 
     # --- messages ---
@@ -163,6 +169,7 @@ def upgrade() -> None:
         sa.Column("intent_detected", sa.String(50), nullable=True),
         sa.Column("tools_called", sa.JSON(), nullable=True),
         sa.Column("created_at", sa.DateTime(), server_default=sa.func.now()),
+        if_not_exists=True,
     )
 
     # --- audit_trail ---
@@ -181,6 +188,7 @@ def upgrade() -> None:
         sa.Column("details", sa.JSON(), nullable=True),
         sa.Column("actor", sa.String(20), nullable=False),
         sa.Column("created_at", sa.DateTime(), server_default=sa.func.now()),
+        if_not_exists=True,
     )
 
     # --- knowledge_base ---
@@ -198,6 +206,7 @@ def upgrade() -> None:
             server_default=sa.func.now(),
             onupdate=sa.func.now(),
         ),
+        if_not_exists=True,
     )
     op.create_index("ix_kb_property_id", "knowledge_base", ["property_id"])
 
@@ -209,6 +218,7 @@ def upgrade() -> None:
         sa.Column("name", sa.String(255), nullable=False),
         sa.Column("is_active", sa.Boolean(), server_default="1"),
         sa.Column("created_at", sa.DateTime(), server_default=sa.func.now()),
+        if_not_exists=True,
     )
     op.create_index("ix_api_keys_key", "api_keys", ["key"])
 
