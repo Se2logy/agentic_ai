@@ -1,0 +1,14 @@
+{
+  "task_id": "TASK-003",
+  "done": true,
+  "notes": "Test plan written by orchestrator (test-builder timed out). 90 tests across 7 feature areas: 17 state machine (unit), 20 MCP tools (unit), 14 LLM agent (unit), 17 REST API (integration), 6 WebSocket (integration), 8 services (unit), 8 E2E browser.",
+  "add_tasks": [
+    {"task_id": "TASK-005-001", "title": "QA: State machine tests (SM-001 to SM-017)", "category": "qa-tester", "order": 1, "depends_on": ["TASK-004-003"]},
+    {"task_id": "TASK-005-002", "title": "QA: MCP tool tests (TOOL-001 to TOOL-020)", "category": "qa-tester", "order": 2, "depends_on": ["TASK-004-004"]},
+    {"task_id": "TASK-005-003", "title": "QA: LLM agent tests (AGENT-001 to AGENT-014)", "category": "qa-tester", "order": 3, "depends_on": ["TASK-004-006"]},
+    {"task_id": "TASK-005-004", "title": "QA: REST API integration tests (API-001 to API-017)", "category": "qa-tester", "order": 4, "depends_on": ["TASK-004-007"]},
+    {"task_id": "TASK-005-005", "title": "QA: WebSocket integration tests (WS-001 to WS-006)", "category": "qa-tester", "order": 5, "depends_on": ["TASK-004-008"]},
+    {"task_id": "TASK-005-006", "title": "QA: Services tests (SVC-001 to SVC-008)", "category": "qa-tester", "order": 6, "depends_on": ["TASK-004-005"]},
+    {"task_id": "TASK-005-007", "title": "QA: E2E browser tests (E2E-001 to E2E-008)", "category": "qa-tester", "order": 7, "depends_on": ["TASK-004-010"]}
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "task_id": "TASK-002",
+  "done": true,
+  "notes": "Implementation plan written by orchestrator (implementation-planner timed out). 11 developer tasks, 7-phase build sequence, critical path of 7 tasks, parallel opportunity at services. Full architecture diagram, directory structure, risk assessment, and dependency graph included.",
+  "add_tasks": [
+    {"task_id": "TASK-004-001", "title": "Project scaffold + config + Docker Compose", "category": "developer", "order": 1, "depends_on": []},
+    {"task_id": "TASK-004-002", "title": "Database models + Alembic migrations + seed data", "category": "developer", "order": 2, "depends_on": ["TASK-004-001"]},
+    {"task_id": "TASK-004-003", "title": "State machine — states, transitions, audit trail", "category": "developer", "order": 3, "depends_on": ["TASK-004-002"]},
+    {"task_id": "TASK-004-004", "title": "MCP tools — registry + all 12 tool implementations", "category": "developer", "order": 4, "depends_on": ["TASK-004-003"]},
+    {"task_id": "TASK-004-005", "title": "Services — email, payment, storage, secure links", "category": "developer", "order": 5, "depends_on": ["TASK-004-002"]},
+    {"task_id": "TASK-004-006", "title": "LLM agent — client, intent, entities, tools, fallback", "category": "developer", "order": 6, "depends_on": ["TASK-004-004"]},
+    {"task_id": "TASK-004-007", "title": "REST API — auth + all endpoints + Pydantic schemas", "category": "developer", "order": 7, "depends_on": ["TASK-004-003", "TASK-004-005"]},
+    {"task_id": "TASK-004-008", "title": "WebSocket handler for real-time chat", "category": "developer", "order": 8, "depends_on": ["TASK-004-007"]},
+    {"task_id": "TASK-004-009", "title": "Web chat widget (vanilla JS + CSS + demo page)", "category": "developer", "order": 9, "depends_on": ["TASK-004-008"]},
+    {"task_id": "TASK-004-010", "title": "End-to-end wiring + session manager + error handling + rate limiting", "category": "developer", "order": 10, "depends_on": ["TASK-004-006", "TASK-004-008"]},
+    {"task_id": "TASK-004-011", "title": "User manual (HTML + PDF with diagrams, flows, tech stack)", "category": "developer", "order": 11, "depends_on": ["TASK-004-010"]}
+  ]
+}

@@ -1,0 +1,52 @@
+{
+  "task_id": "TASK-007",
+  "done": false,
+  "notes": "NEEDS WORK. Architecture is solid: 9-state machine correct, 12 MCP tools registered, 10/11 REST endpoints + WebSocket working, LLM+fallback working, 220 unit tests pass, Docker Compose + user manual PDF delivered. However, 5 issues block shipping: (1) OTP API endpoint still uses == comparison (timing attack) and random.choices (not crypto-secure) — MCP tool path is fixed but API path is not; (2) Dollar signs broken on guest-facing incidental selection page (renders \\9.99 and (.00); (3) Absolute session expiry is 48h instead of spec's 24h; (4) Missing audit trail API endpoint (data logged but inaccessible); (5) Float used for monetary amount instead of DECIMAL. Code review critical issues: C1 partial, C2 fixed, C3 fixed, C4 partial, C5 fixed, C6 fixed.",
+  "add_tasks": [
+    {
+      "title": "Fix — OTP API endpoint timing attack and insecure random",
+      "description": "app/api/otp.py verify_otp uses == for OTP comparison (timing attack vulnerability) and trigger_otp uses random.choices (not cryptographically secure). Must use hmac.compare_digest and secrets.choice like the MCP tool in app/mcp_tools/otp_tools.py. Additionally, OTP codes should be hashed before DB storage — currently stored as plaintext VARCHAR(10).",
+      "category": "developer",
+      "order": 1,
+      "depends_on": [],
+      "done": false,
+      "notes": "C1 partial fix — MCP tool path is secure, but the REST API path that guests actually use is still vulnerable. Two parallel OTP implementations need to be consolidated."
+    },
+    {
+      "title": "Fix — broken dollar signs on incidental selection page",
+      "description": "app/api/incidental.py _build_selection_page() renders \\9.99 and (.00 instead of $49.99 and $250.00 due to Python f-string escaping. Also line 122: f\"Payment of \\ processed successfully.\" is missing the amount. Change to $49.99, $250.00, and include the amount in the payment message.",
+      "category": "developer",
+      "order": 2,
+      "depends_on": [],
+      "done": false,
+      "notes": "Guest-facing UI bug — I3 from code review, never fixed."
+    },
+    {
+      "title": "Fix — absolute session expiry should be 24h not 48h",
+      "description": "app/auth/session_token.py line 51 uses timedelta(hours=token_max_age_hours * 2) which makes absolute expiry 48h. The spec requires 24h. Change * 2 to no multiplier.",
+      "category": "developer",
+      "order": 3,
+      "depends_on": [],
+      "done": false,
+      "notes": "C4 partial fix — idle timeout is correct at 24h but absolute max is 48h."
+    },
+    {
+      "title": "Add — missing audit trail API endpoint",
+      "description": "Spec requires GET /api/v1/guests/{guest_id}/audit-trail but no endpoint exists. The AuditTrail model and log_audit() function work correctly. Create app/api/audit.py with a router that queries audit entries by guest_id (via session relationship) and register it in app/api/router.py.",
+      "category": "developer",
+      "order": 4,
+      "depends_on": [],
+      "done": false,
+      "notes": "11th REST endpoint from spec is missing."
+    },
+    {
+      "title": "Fix — Float to DECIMAL for monetary amount",
+      "description": "app/models/incidental_selection.py line 23 uses Column(Float) for the amount field. Financial data must use Numeric(10, 2) or DECIMAL to avoid precision loss. Change Float to Numeric(10, 2).",
+      "category": "developer",
+      "order": 5,
+      "depends_on": [],
+      "done": false,
+      "notes": "I4 from code review — Float loses precision for 49.99 etc."
+    }
+  ]
+}

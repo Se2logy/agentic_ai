@@ -1,0 +1,1318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Guest Check-In System — User Manual</title>
+<style>
+  @page { margin: 20mm 18mm; size: A4; }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; color: #1a1a2e; line-height: 1.65; margin: 0; padding: 0; font-size: 11pt; background: #fff; }
+  h1 { font-size: 26pt; color: #1a73e8; margin: 0 0 8px; }
+  h2 { font-size: 18pt; color: #1a73e8; border-bottom: 2px solid #1a73e8; padding-bottom: 6px; margin: 36px 0 16px; page-break-after: avoid; }
+  h3 { font-size: 14pt; color: #333; margin: 24px 0 10px; page-break-after: avoid; }
+  h4 { font-size: 12pt; color: #555; margin: 18px 0 8px; }
+  p { margin: 0 0 10px; }
+  a { color: #1a73e8; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  ul, ol { margin: 0 0 12px 18px; }
+  li { margin-bottom: 4px; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 20px; font-size: 10pt; }
+  th { background: #1a73e8; color: #fff; text-align: left; padding: 8px 10px; font-weight: 600; }
+  td { padding: 7px 10px; border-bottom: 1px solid #e0e0e0; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  code, pre { font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 9.5pt; background: #f4f5f7; border-radius: 4px; }
+  code { padding: 1px 5px; }
+  pre { padding: 12px 16px; overflow-x: auto; margin: 10px 0 16px; border: 1px solid #e0e0e0; }
+  .cover { text-align: center; padding: 120px 40px 60px; page-break-after: always; }
+  .cover h1 { font-size: 36pt; margin-bottom: 12px; }
+  .cover .subtitle { font-size: 16pt; color: #555; margin-bottom: 40px; }
+  .cover .meta { font-size: 11pt; color: #888; line-height: 2; }
+  .toc { page-break-after: always; }
+  .toc ul { list-style: none; padding: 0; margin: 0; }
+  .toc > ul > li { margin-bottom: 6px; font-weight: 600; font-size: 11.5pt; }
+  .toc > ul > li > ul > li { font-weight: 400; font-size: 10.5pt; margin-left: 18px; margin-bottom: 3px; }
+  .toc > ul > li > ul > li > ul > li { font-weight: 400; font-size: 10pt; margin-left: 36px; margin-bottom: 2px; }
+  .toc a { color: #1a73e8; }
+  .diagram-container { text-align: center; margin: 20px 0; page-break-inside: avoid; }
+  .note { background: #e8f0fe; border-left: 4px solid #1a73e8; padding: 12px 16px; margin: 16px 0; border-radius: 0 6px 6px 0; font-size: 10pt; }
+  .note strong { color: #1a73e8; }
+  .warn { background: #fef7e0; border-left: 4px solid #f9ab00; padding: 12px 16px; margin: 16px 0; border-radius: 0 6px 6px 0; font-size: 10pt; }
+  .endpoint { margin: 16px 0 24px; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden; page-break-inside: avoid; }
+  .endpoint-header { background: #f8f9fa; padding: 10px 14px; display: flex; align-items: center; gap: 10px; }
+  .method { font-weight: 700; font-size: 10pt; padding: 3px 8px; border-radius: 4px; color: #fff; }
+  .method.get { background: #0d9488; }
+  .method.post { background: #1a73e8; }
+  .method.ws { background: #7c3aed; }
+  .path { font-family: monospace; font-size: 10.5pt; color: #333; }
+  .endpoint-body { padding: 12px 14px; }
+  .endpoint-body h4 { margin: 0 0 6px; font-size: 10.5pt; }
+  .section { page-break-before: auto; }
+  .badge { display: inline-block; font-size: 8.5pt; padding: 2px 7px; border-radius: 10px; font-weight: 600; }
+  .badge-key { background: #e8f0fe; color: #1a73e8; }
+  .badge-token { background: #fef7e0; color: #b45309; }
+  .state-table td:first-child { font-family: monospace; font-size: 9.5pt; white-space: nowrap; font-weight: 600; }
+  .footer { text-align: center; font-size: 9pt; color: #999; margin-top: 40px; padding-top: 16px; border-top: 1px solid #e0e0e0; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     SECTION 1: COVER PAGE
+     ═══════════════════════════════════════════════════════════════ -->
+<div class="cover">
+  <div style="margin-bottom:32px;">
+    <svg width="80" height="80" viewBox="0 0 80 80"><rect width="80" height="80" rx="16" fill="#1a73e8"/><path d="M40 18 L56 30 L56 50 L40 58 L24 50 L24 30 Z" fill="none" stroke="#fff" stroke-width="2.5"/><path d="M40 28 L40 42 M34 36 L46 36" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/><circle cx="40" cy="48" r="3" fill="#fff"/></svg>
+  </div>
+  <h1>Guest Check-In System</h1>
+  <div class="subtitle">User Manual &amp; Technical Reference</div>
+  <div class="meta">
+    <strong>Version</strong> 1.0.0<br>
+    <strong>Date</strong> June 2025<br>
+    <strong>Status</strong> Production Release
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     SECTION 2: TABLE OF CONTENTS
+     ═══════════════════════════════════════════════════════════════ -->
+<div class="toc">
+  <h2 style="border:none; margin-top:0;">Table of Contents</h2>
+  <ul>
+    <li><a href="#exec-summary">3. Executive Summary</a></li>
+    <li><a href="#architecture">4. High-Level Architecture</a></li>
+    <li><a href="#process-flow">5. Process Flow — State Machine</a></li>
+    <li><a href="#tech-stack">6. Technical Stack</a></li>
+    <li><a href="#non-tech-stack">7. Non-Technical Stack</a></li>
+    <li><a href="#sys-req">8. System Requirements</a></li>
+    <li><a href="#deployment">9. Deployment Guide</a></li>
+    <li><a href="#config">10. Configuration Reference</a></li>
+    <li><a href="#api-ref">11. API Reference</a></li>
+    <li><a href="#widget">12. Widget Integration Guide</a></li>
+    <li><a href="#state-ref">13. State Machine Reference</a></li>
+    <li><a href="#mcp-ref">14. MCP Tools Reference</a></li>
+    <li><a href="#troubleshooting">15. Troubleshooting</a></li>
+    <li><a href="#glossary">16. Glossary</a></li>
+    <li><a href="#db-schema">17. Appendix: Database Schema</a></li>
+  </ul>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     SECTION 3: EXECUTIVE SUMMARY
+     ═══════════════════════════════════════════════════════════════ -->
+<div class="section" id="exec-summary">
+  <h2>3. Executive Summary</h2>
+  <p>The <strong>Guest Check-In System</strong> is a conversation-based, AI-powered onboarding platform for short-term rental properties. It replaces fragmented email-link workflows with a single, guided chat experience that walks every guest through the required check-in steps — privacy policy acceptance, house rules, rental agreement, identity verification, ID upload, and incidental protection — in a natural conversation.</p>
+
+  <h3>Who It's For</h3>
+  <ul>
+    <li><strong>Property Managers &amp; Booking Platforms</strong> — Integrate via REST API or embed the chat widget on any website.</li>
+    <li><strong>Guests</strong> — Complete onboarding by chatting with an AI agent; no app download or portal login required.</li>
+  </ul>
+
+  <h3>Key Benefits</h3>
+  <ul>
+    <li><strong>Higher Completion Rates</strong> — Guided conversation prevents guest abandonment at any step.</li>
+    <li><strong>Real-Time Assistance</strong> — Guests can ask questions mid-process; the AI answers from the property FAQ.</li>
+    <li><strong>Full Audit Trail</strong> — Every agreement, transition, and action is recorded with timestamps.</li>
+    <li><strong>Channel-Agnostic</strong> — REST API + WebSocket + embeddable widget work with any booking channel.</li>
+    <li><strong>Local LLM</strong> — Runs Ollama (Llama 3.1 8B) on-premise; no cloud API keys, no per-message cost.</li>
+    <li><strong>State-Machine Safety</strong> — The AI agent can never skip a step; the state machine is the single source of truth.</li>
+  </ul>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     SECTION 4: HIGH-LEVEL ARCHITECTURE
+     ═══════════════════════════════════════════════════════════════ -->
+<div class="section" id="architecture">
+  <h2>4. High-Level Architecture</h2>
+  <p>The system follows a three-layer architecture: <strong>Client Layer</strong> (web widget + API clients), <strong>Application Layer</strong> (FastAPI server, state machine, LLM agent, MCP tools, services), and <strong>Data Layer</strong> (MySQL + file storage).</p>
+
+  <div class="diagram-container">
+    <svg viewBox="0 0 820 620" width="780" height="590" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10">
+      <!-- Background zones -->
+      <rect x="0" y="0" width="820" height="120" rx="8" fill="#e8f0fe" stroke="#1a73e8" stroke-width="1"/>
+      <rect x="0" y="130" width="820" height="370" rx="8" fill="#f0fdf4" stroke="#16a34a" stroke-width="1"/>
+      <rect x="0" y="510" width="820" height="110" rx="8" fill="#fef3c7" stroke="#d97706" stroke-width="1"/>
+
+      <!-- Zone labels -->
+      <text x="14" y="20" font-size="12" font-weight="700" fill="#1a73e8">Client Layer</text>
+      <text x="14" y="150" font-size="12" font-weight="700" fill="#16a34a">Application Layer</text>
+      <text x="14" y="530" font-size="12" font-weight="700" fill="#d97706">Data Layer</text>
+
+      <!-- Client Layer boxes -->
+      <rect x="60" y="38" width="200" height="62" rx="8" fill="#fff" stroke="#1a73e8" stroke-width="1.5"/>
+      <text x="160" y="64" text-anchor="middle" font-size="11" font-weight="600">Web Chat Widget</text>
+      <text x="160" y="80" text-anchor="middle" font-size="9" fill="#666">(Vanilla JS + WebSocket)</text>
+
+      <rect x="560" y="38" width="200" height="62" rx="8" fill="#fff" stroke="#1a73e8" stroke-width="1.5"/>
+      <text x="660" y="64" text-anchor="middle" font-size="11" font-weight="600">REST API Clients</text>
+      <text x="660" y="80" text-anchor="middle" font-size="9" fill="#666">(Booking Platforms)</text>
+
+      <!-- Arrows from clients to FastAPI -->
+      <line x1="160" y1="100" x2="320" y2="176" stroke="#1a73e8" stroke-width="1.5" marker-end="url(#arrow)"/>
+      <text x="220" y="142" font-size="8" fill="#1a73e8">WebSocket</text>
+      <line x1="660" y1="100" x2="500" y2="176" stroke="#1a73e8" stroke-width="1.5" marker-end="url(#arrow)"/>
+      <text x="560" y="142" font-size="8" fill="#1a73e8">REST / HTTP</text>
+
+      <!-- FastAPI Server (main box) -->
+      <rect x="260" y="168" width="300" height="50" rx="8" fill="#fff" stroke="#16a34a" stroke-width="2"/>
+      <text x="410" y="190" text-anchor="middle" font-size="12" font-weight="700" fill="#16a34a">FastAPI Server (Uvicorn)</text>
+      <text x="410" y="206" text-anchor="middle" font-size="9" fill="#666">REST Routes · WebSocket · Auth Middleware</text>
+
+      <!-- Session Manager -->
+      <rect x="280" y="240" width="260" height="44" rx="6" fill="#fff" stroke="#16a34a" stroke-width="1.5"/>
+      <text x="410" y="260" text-anchor="middle" font-size="11" font-weight="600">Session Manager</text>
+      <text x="410" y="274" text-anchor="middle" font-size="9" fill="#666">Routes messages · Loads/saves state</text>
+
+      <line x1="410" y1="218" x2="410" y2="240" stroke="#16a34a" stroke-width="1.5" marker-end="url(#arrowG)"/>
+
+      <!-- State Machine box (left) -->
+      <rect x="30" y="310" width="220" height="70" rx="8" fill="#fff" stroke="#7c3aed" stroke-width="1.5"/>
+      <text x="140" y="334" text-anchor="middle" font-size="11" font-weight="600" fill="#7c3aed">State Machine</text>
+      <text x="140" y="350" text-anchor="middle" font-size="9" fill="#666">9 States · Transitions</text>
+      <text x="140" y="364" text-anchor="middle" font-size="9" fill="#666">Audit Trail · Validation</text>
+
+      <!-- LLM Agent box (right) -->
+      <rect x="280" y="310" width="220" height="70" rx="8" fill="#fff" stroke="#ea580c" stroke-width="1.5"/>
+      <text x="390" y="334" text-anchor="middle" font-size="11" font-weight="600" fill="#ea580c">LLM Agent</text>
+      <text x="390" y="350" text-anchor="middle" font-size="9" fill="#666">Ollama + Llama 3.1 8B</text>
+      <text x="390" y="364" text-anchor="middle" font-size="9" fill="#666">Intent · Entities · Tool Calls</text>
+
+      <!-- MCP Tools box (far right) -->
+      <rect x="530" y="310" width="240" height="70" rx="8" fill="#fff" stroke="#0891b2" stroke-width="1.5"/>
+      <text x="650" y="334" text-anchor="middle" font-size="11" font-weight="600" fill="#0891b2">MCP Tools (12)</text>
+      <text x="650" y="350" text-anchor="middle" font-size="9" fill="#666">get_reservation · record_agreement</text>
+      <text x="650" y="364" text-anchor="middle" font-size="9" fill="#666">trigger_otp · verify_otp · …</text>
+
+      <!-- Arrows: Session Manager → State Machine & Agent -->
+      <line x1="340" y1="284" x2="200" y2="310" stroke="#16a34a" stroke-width="1.2" marker-end="url(#arrowG)"/>
+      <line x1="410" y1="284" x2="410" y2="310" stroke="#16a34a" stroke-width="1.2" marker-end="url(#arrowG)"/>
+
+      <!-- Agent → State Machine (validates) -->
+      <line x1="280" y1="345" x2="250" y2="345" stroke="#7c3aed" stroke-width="1.2" stroke-dasharray="4 2" marker-end="url(#arrowP)"/>
+      <text x="252" y="338" font-size="8" fill="#7c3aed">validates</text>
+
+      <!-- Agent → MCP Tools -->
+      <line x1="500" y1="345" x2="530" y2="345" stroke="#0891b2" stroke-width="1.2" marker-end="url(#arrowC)"/>
+      <text x="502" y="338" font-size="8" fill="#0891b2">calls</text>
+
+      <!-- Services box -->
+      <rect x="30" y="405" width="340" height="65" rx="6" fill="#fff" stroke="#16a34a" stroke-width="1.5"/>
+      <text x="200" y="425" text-anchor="middle" font-size="11" font-weight="600">Services</text>
+      <text x="100" y="448" text-anchor="middle" font-size="9" fill="#666">Email (SMTP)</text>
+      <text x="200" y="448" text-anchor="middle" font-size="9" fill="#666">Payment (Mock)</text>
+      <text x="310" y="448" text-anchor="middle" font-size="9" fill="#666">File Storage</text>
+      <text x="200" y="462" text-anchor="middle" font-size="9" fill="#666">Secure Links (JWT)</text>
+
+      <!-- MCP → Services -->
+      <line x1="530" y1="380" x2="310" y2="405" stroke="#666" stroke-width="1" stroke-dasharray="3 2"/>
+
+      <!-- Audit Logger -->
+      <rect x="530" y="405" width="240" height="50" rx="6" fill="#fff" stroke="#16a34a" stroke-width="1.5"/>
+      <text x="650" y="425" text-anchor="middle" font-size="11" font-weight="600">Audit Logger</text>
+      <text x="650" y="442" text-anchor="middle" font-size="9" fill="#666">Every transition · action · tool call</text>
+
+      <!-- State Machine → Audit -->
+      <line x1="250" y1="380" x2="530" y2="425" stroke="#16a34a" stroke-width="1" stroke-dasharray="3 2"/>
+
+      <!-- Data Layer -->
+      <rect x="80" y="540" width="260" height="60" rx="8" fill="#fff" stroke="#d97706" stroke-width="1.5"/>
+      <text x="210" y="565" text-anchor="middle" font-size="12" font-weight="700" fill="#d97706">MySQL 8.0</text>
+      <text x="210" y="582" text-anchor="middle" font-size="9" fill="#666">10 Tables · SQLAlchemy ORM · Alembic</text>
+
+      <rect x="480" y="540" width="220" height="60" rx="8" fill="#fff" stroke="#d97706" stroke-width="1.5"/>
+      <text x="590" y="565" text-anchor="middle" font-size="12" font-weight="700" fill="#d97706">File Storage</text>
+      <text x="590" y="582" text-anchor="middle" font-size="9" fill="#666">ID Documents · Volume Mount</text>
+
+      <!-- App → Data arrows -->
+      <line x1="200" y1="470" x2="200" y2="540" stroke="#d97706" stroke-width="1.5" marker-end="url(#arrowY)"/>
+      <line x1="590" y1="470" x2="590" y2="540" stroke="#d97706" stroke-width="1.5" marker-end="url(#arrowY)"/>
+
+      <!-- Arrow markers -->
+      <defs>
+        <marker id="arrow" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#1a73e8"/></marker>
+        <marker id="arrowG" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#16a34a"/></marker>
+        <marker id="arrowP" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#7c3aed"/></marker>
+        <marker id="arrowC" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#0891b2"/></marker>
+        <marker id="arrowY" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#d97706"/></marker>
+      </defs>
+    </svg>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     SECTION 5: PROCESS FLOW
+     ═══════════════════════════════════════════════════════════════ -->
+<div class="section" id="process-flow">
+  <h2>5. Process Flow — State Machine</h2>
+  <p>The guest onboarding workflow is governed by a deterministic state machine with <strong>9 states</strong>. The LLM agent detects intent and calls MCP tools, but the state machine validates every transition — the agent can never skip a step.</p>
+
+  <div class="diagram-container">
+    <svg viewBox="0 0 820 520" width="780" height="500" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10">
+      <!-- States (top flow) -->
+      <rect x="10" y="30" width="90" height="40" rx="8" fill="#e0e0e0" stroke="#888" stroke-width="1.5"/>
+      <text x="55" y="55" text-anchor="middle" font-size="10" font-weight="600">INIT</text>
+
+      <rect x="130" y="30" width="170" height="40" rx="8" fill="#dbeafe" stroke="#1a73e8" stroke-width="1.5"/>
+      <text x="215" y="55" text-anchor="middle" font-size="9.5" font-weight="600">PRIVACY_POLICY_PENDING</text>
+
+      <rect x="330" y="30" width="155" height="40" rx="8" fill="#dbeafe" stroke="#1a73e8" stroke-width="1.5"/>
+      <text x="407" y="55" text-anchor="middle" font-size="9.5" font-weight="600">HOUSE_RULES_PENDING</text>
+
+      <rect x="515" y="30" width="175" height="40" rx="8" fill="#dbeafe" stroke="#1a73e8" stroke-width="1.5"/>
+      <text x="602" y="55" text-anchor="middle" font-size="9.5" font-weight="600">RENTAL_AGREEMENT_PENDING</text>
+
+      <!-- Row 2 -->
+      <rect x="50" y="130" width="170" height="40" rx="8" fill="#dbeafe" stroke="#1a73e8" stroke-width="1.5"/>
+      <text x="135" y="155" text-anchor="middle" font-size="9.5" font-weight="600">INFO_VERIFY_PENDING</text>
+
+      <rect x="270" y="130" width="155" height="40" rx="8" fill="#dbeafe" stroke="#1a73e8" stroke-width="1.5"/>
+      <text x="347" y="155" text-anchor="middle" font-size="9.5" font-weight="600">ID_VERIFY_PENDING</text>
+
+      <rect x="470" y="130" width="220" height="40" rx="8" fill="#dbeafe" stroke="#1a73e8" stroke-width="1.5"/>
+      <text x="580" y="155" text-anchor="middle" font-size="9" font-weight="600">INCIDENTAL_PROTECTION_PENDING</text>
+
+      <!-- COMPLETED -->
+      <rect x="310" y="230" width="150" height="44" rx="8" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+      <text x="385" y="257" text-anchor="middle" font-size="11" font-weight="700" fill="#16a34a">COMPLETED</text>
+
+      <!-- REFUSED -->
+      <rect x="620" y="300" width="120" height="44" rx="8" fill="#fef2f2" stroke="#dc2626" stroke-width="2"/>
+      <text x="680" y="327" text-anchor="middle" font-size="11" font-weight="700" fill="#dc2626">REFUSED</text>
+
+      <!-- Arrows: main flow -->
+      <defs>
+        <marker id="fwd" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><path d="M0,0 L7,2.5 L0,5" fill="#1a73e8"/></marker>
+        <marker id="dec" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><path d="M0,0 L7,2.5 L0,5" fill="#dc2626"/></marker>
+        <marker id="res" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><path d="M0,0 L7,2.5 L0,5" fill="#16a34a"/></marker>
+      </defs>
+
+      <!-- INIT → PRIVACY -->
+      <line x1="100" y1="50" x2="130" y2="50" stroke="#1a73e8" stroke-width="1.5" marker-end="url(#fwd)"/>
+      <text x="110" y="44" font-size="8" fill="#1a73e8">start</text>
+
+      <!-- PRIVACY → HOUSE_RULES -->
+      <line x1="300" y1="50" x2="330" y2="50" stroke="#1a73e8" stroke-width="1.5" marker-end="url(#fwd)"/>
+      <text x="308" y="44" font-size="8" fill="#1a73e8">agree</text>
+
+      <!-- HOUSE_RULES → RENTAL -->
+      <line x1="485" y1="50" x2="515" y2="50" stroke="#1a73e8" stroke-width="1.5" marker-end="url(#fwd)"/>
+      <text x="493" y="44" font-size="8" fill="#1a73e8">agree</text>
+
+      <!-- RENTAL → INFO_VERIFY (down-left) -->
+      <path d="M580 70 Q580 100 135 100 Q80 100 80 130" fill="none" stroke="#1a73e8" stroke-width="1.5" marker-end="url(#fwd)"/>
+      <text x="350" y="96" font-size="8" fill="#1a73e8">agree</text>
+
+      <!-- INFO_VERIFY → ID_VERIFY -->
+      <line x1="220" y1="150" x2="270" y2="150" stroke="#1a73e8" stroke-width="1.5" marker-end="url(#fwd)"/>
+      <text x="232" y="144" font-size="8" fill="#1a73e8">confirm</text>
+
+      <!-- ID_VERIFY → INCIDENTAL -->
+      <line x1="425" y1="150" x2="470" y2="150" stroke="#1a73e8" stroke-width="1.5" marker-end="url(#fwd)"/>
+      <text x="435" y="144" font-size="8" fill="#1a73e8">upload_id</text>
+
+      <!-- INCIDENTAL → COMPLETED -->
+      <path d="M580 170 Q580 210 385 210 Q340 210 340 230" fill="none" stroke="#16a34a" stroke-width="1.5" marker-end="url(#res)"/>
+      <text x="460" y="206" font-size="8" fill="#16a34a">select_option</text>
+
+      <!-- Decline arrows: PRIVACY, HOUSE_RULES, RENTAL → REFUSED -->
+      <path d="M215 70 Q215 200 680 200 Q750 200 750 300" fill="none" stroke="#dc2626" stroke-width="1.2" stroke-dasharray="5 3" marker-end="url(#dec)"/>
+      <path d="M407 70 Q407 180 680 180 Q740 180 740 300" fill="none" stroke="#dc2626" stroke-width="1.2" stroke-dasharray="5 3" marker-end="url(#dec)"/>
+      <path d="M602 70 Q602 160 680 160 Q730 160 730 300" fill="none" stroke="#dc2626" stroke-width="1.2" stroke-dasharray="5 3" marker-end="url(#dec)"/>
+      <text x="475" y="196" font-size="8" fill="#dc2626">decline</text>
+
+      <!-- REFUSED → INIT (resume) -->
+      <path d="M620 322 Q400 322 55 322 Q30 322 30 70" fill="none" stroke="#16a34a" stroke-width="1.5" stroke-dasharray="6 3" marker-end="url(#res)"/>
+      <text x="320" y="318" font-size="9" fill="#16a34a" font-weight="600">resume</text>
+
+      <!-- Decision diamonds labels -->
+      <text x="215" y="85" font-size="8" fill="#888">☑/✗</text>
+      <text x="407" y="85" font-size="8" fill="#888">☑/✗</text>
+      <text x="602" y="85" font-size="8" fill="#888">☑/✗</text>
+
+      <!-- Legend -->
+      <rect x="20" y="380" width="780" height="120" rx="6" fill="#f8f9fa" stroke="#e0e0e0" stroke-width="1"/>
+      <text x="40" y="402" font-size="10" font-weight="700">Legend</text>
+      <line x1="40" y1="420" x2="80" y2="420" stroke="#1a73e8" stroke-width="2" marker-end="url(#fwd)"/>
+      <text x="90" y="424" font-size="9">Agree / Confirm / Success transition</text>
+      <line x1="40" y1="440" x2="80" y2="440" stroke="#dc2626" stroke-width="1.5" stroke-dasharray="5 3" marker-end="url(#dec)"/>
+      <text x="90" y="444" font-size="9">Decline — halts onboarding → REFUSED</text>
+      <line x1="40" y1="460" x2="80" y2="460" stroke="#16a34a" stroke-width="1.5" stroke-dasharray="6 3" marker-end="url(#res)"/>
+      <text x="90" y="464" font-size="9">Resume — restart from INIT after refusal</text>
+      <rect x="380" y="412" width="14" height="14" rx="3" fill="#dcfce7" stroke="#16a34a" stroke-width="1.5"/>
+      <text x="402" y="424" font-size="9">Completed (terminal state)</text>
+      <rect x="380" y="436" width="14" height="14" rx="3" fill="#fef2f2" stroke="#dc2626" stroke-width="1.5"/>
+      <text x="402" y="448" font-size="9">Refused (can resume)</text>
+      <rect x="380" y="460" width="14" height="14" rx="3" fill="#dbeafe" stroke="#1a73e8" stroke-width="1.5"/>
+      <text x="402" y="472" font-size="9">Pending state (requires guest action)</text>
+    </svg>
+  </div>
+
+  <p>At each agreement step (Privacy Policy, House Rules, Rental Agreement), the guest can <strong>agree</strong> (advancing to the next state) or <strong>decline</strong> (transitioning to REFUSED). A refused session can be <strong>resumed</strong> at any time, restarting from the beginning (INIT).</p>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     SECTION 6: TECHNICAL STACK
+     ═══════════════════════════════════════════════════════════════ -->
+<div class="section" id="tech-stack">
+  <h2>6. Technical Stack</h2>
+  <table>
+    <thead><tr><th>Component</th><th>Technology</th><th>Version</th><th>License</th></tr></thead>
+    <tbody>
+      <tr><td>Web Framework</td><td>FastAPI</td><td>0.110+</td><td>MIT</td></tr>
+      <tr><td>ASGI Server</td><td>Uvicorn</td><td>0.27+</td><td>BSD</td></tr>
+      <tr><td>ORM</td><td>SQLAlchemy</td><td>2.0+</td><td>MIT</td></tr>
+      <tr><td>Migrations</td><td>Alembic</td><td>1.13+</td><td>MIT</td></tr>
+      <tr><td>MySQL Driver (sync)</td><td>PyMySQL</td><td>1.1+</td><td>MIT</td></tr>
+      <tr><td>MySQL Driver (async)</td><td>aiomysql</td><td>0.2+</td><td>MIT</td></tr>
+      <tr><td>Database</td><td>MySQL</td><td>8.0</td><td>GPL</td></tr>
+      <tr><td>LLM Runtime</td><td>Ollama</td><td>Latest</td><td>MIT</td></tr>
+      <tr><td>LLM Model</td><td>Llama 3.1 8B Instruct</td><td>8B</td><td>Llama 3.1 License</td></tr>
+      <tr><td>Email (Dev)</td><td>MailHog</td><td>v1.0.1</td><td>MIT</td></tr>
+      <tr><td>Template Engine</td><td>Jinja2</td><td>3.1+</td><td>BSD</td></tr>
+      <tr><td>Validation</td><td>Pydantic</td><td>v2 (2.5+)</td><td>MIT</td></tr>
+      <tr><td>Settings</td><td>pydantic-settings</td><td>2.1+</td><td>MIT</td></tr>
+      <tr><td>Rate Limiting</td><td>slowapi</td><td>0.1.9+</td><td>MIT</td></tr>
+      <tr><td>HTTP Client</td><td>httpx</td><td>0.26+</td><td>BSD</td></tr>
+      <tr><td>Async SMTP</td><td>aiosmtplib</td><td>3.0+</td><td>MIT</td></tr>
+      <tr><td>Testing</td><td>pytest</td><td>8.0+</td><td>MIT</td></tr>
+      <tr><td>Async Testing</td><td>pytest-asyncio</td><td>0.23+</td><td>MIT</td></tr>
+      <tr><td>E2E Testing</td><td>Playwright (Python)</td><td>Latest</td><td>Apache 2.0</td></tr>
+      <tr><td>Containerization</td><td>Docker + Docker Compose</td><td>3.9</td><td>Apache 2.0</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     SECTION 7: NON-TECHNICAL STACK
+     ═══════════════════════════════════════════════════════════════ -->
+<div class="section" id="non-tech-stack">
+  <h2>7. Non-Technical Stack</h2>
+  <p>What each component <em>does</em> in plain language:</p>
+  <table>
+    <thead><tr><th>Capability</th><th>Tool</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td>LLM (Ollama)</td><td>Llama 3.1 8B</td><td>Understands guest messages, detects intent (agree, decline, question), extracts entities, and decides which tool to call.</td></tr>
+      <tr><td>State Machine</td><td>Custom Python</td><td>Controls the onboarding workflow sequence — ensures guests complete steps in order; the LLM cannot skip or reorder.</td></tr>
+      <tr><td>Database (MySQL)</td><td>MySQL 8.0</td><td>Stores all guest, reservation, session, agreement, OTP, payment, message, and audit data persistently.</td></tr>
+      <tr><td>Email (SMTP)</td><td>MailHog (dev) / SMTP</td><td>Sends OTP verification codes to guests' email addresses for identity confirmation.</td></tr>
+      <tr><td>Web Server</td><td>FastAPI + Uvicorn</td><td>Handles HTTP requests and WebSocket connections from clients and booking platforms.</td></tr>
+      <tr><td>Authentication</td><td>API Key + Session Token</td><td>API keys secure platform endpoints; session tokens secure guest-facing endpoints (ID upload, OTP, payment).</td></tr>
+      <tr><td>File Storage</td><td>Local filesystem</td><td>Saves uploaded ID documents; volume-mounted in Docker for persistence.</td></tr>
+      <tr><td>Payment</td><td>MockPayment (v1)</td><td>Simulates payment processing for incidental protection; swappable with real gateway (Stripe, etc.).</td></tr>
+      <tr><td>Audit Trail</td><td>Custom logger + DB</td><td>Records every state transition, tool call, and guest action with timestamps — immutable log.</td></tr>
+      <tr><td>Containerization</td><td>Docker Compose</td><td>Packages app, MySQL, and MailHog into reproducible, one-command deployment.</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     SECTION 8: SYSTEM REQUIREMENTS
+     ═══════════════════════════════════════════════════════════════ -->
+<div class="section" id="sys-req">
+  <h2>8. System Requirements</h2>
+  <h3>Hardware</h3>
+  <table>
+    <thead><tr><th>Resource</th><th>Minimum</th><th>Recommended</th></tr></thead>
+    <tbody>
+      <tr><td>CPU</td><td>2 cores</td><td>4+ cores (for Ollama inference)</td></tr>
+      <tr><td>RAM</td><td>4 GB</td><td>8 GB+ (Ollama + Llama 3.1 8B requires ~6 GB)</td></tr>
+      <tr><td>Disk</td><td>20 GB</td><td>50 GB+ (Ollama model ~4.7 GB + Docker images + data)</td></tr>
+      <tr><td>GPU</td><td>Not required (CPU inference)</td><td>NVIDIA GPU with 8 GB+ VRAM for faster responses</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Software</h3>
+  <ul>
+    <li><strong>Docker</strong> 20.10+ and <strong>Docker Compose</strong> v2+</li>
+    <li><strong>Ollama</strong> (installed on host or separate machine)</li>
+    <li>Operating system: Linux (Ubuntu 20.04+), macOS, or Windows with WSL2</li>
+  </ul>
+
+  <h3>Network</h3>
+  <ul>
+    <li>Port <strong>8000</strong> — Application (FastAPI / Uvicorn)</li>
+    <li>Port <strong>3306</strong> — MySQL</li>
+    <li>Port <strong>1025</strong> — MailHog SMTP</li>
+    <li>Port <strong>8025</strong> — MailHog Web UI</li>
+    <li>Port <strong>11434</strong> — Ollama API</li>
+  </ul>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     SECTION 9: DEPLOYMENT GUIDE
+     ═══════════════════════════════════════════════════════════════ -->
+<div class="section" id="deployment">
+  <h2>9. Deployment Guide</h2>
+
+  <h3>9.1 Prerequisites</h3>
+  <ol>
+    <li><strong>Docker</strong> — <code>docker --version</code> should return 20.10+</li>
+    <li><strong>Docker Compose</strong> — <code>docker compose version</code> should return v2+</li>
+    <li><strong>Ollama</strong> — Install from <a href="https://ollama.com">ollama.com</a> and verify: <code>ollama --version</code></li>
+  </ol>
+
+  <h3>9.2 Clone the Repository</h3>
+<pre>git clone https://github.com/your-org/guest-checkin.git
+cd guest-checkin</pre>
+
+  <h3>9.3 Configure Environment</h3>
+<pre>cp .env.example .env
+# Edit .env with your settings (see Section 10 for full reference)</pre>
+  <p>At minimum, set <code>DATABASE_URL</code>, <code>OLLAMA_BASE_URL</code>, and <code>LINK_SECRET</code> (change from the default for production).</p>
+
+  <h3>9.4 Pull the Ollama Model</h3>
+<pre>ollama pull llama3.1:8b</pre>
+  <div class="note"><strong>Note:</strong> This downloads ~4.7 GB. Run <code>ollama serve</code> first if the daemon is not already running.</div>
+
+  <h3>9.5 Start Services</h3>
+<pre>docker compose up -d --build</pre>
+  <p>This starts three containers:</p>
+  <ul>
+    <li><strong>app</strong> — FastAPI on port 8000</li>
+    <li><strong>mysql</strong> — MySQL 8.0 on port 3306</li>
+    <li><strong>mailhog</strong> — SMTP on port 1025, Web UI on port 8025</li>
+  </ul>
+
+  <h3>9.6 Run Database Migrations</h3>
+<pre>docker compose exec app alembic upgrade head</pre>
+
+  <h3>9.7 Seed the Database</h3>
+<pre>docker compose exec app python -m seed.seed_reservations
+docker compose exec app python -m seed.seed_knowledge_base
+docker compose exec app python -m seed.seed_api_keys</pre>
+
+  <h3>9.8 Verify the System</h3>
+<pre># Health check
+curl http://localhost:8000/docs
+
+# Test with demo API key
+curl -H "X-API-Key: demo-key" \
+  http://localhost:8000/api/v1/reservations/BK-2024-001
+
+# Check MailHog
+open http://localhost:8025</pre>
+  <p>If all return successful responses, the system is running.</p>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     SECTION 10: CONFIGURATION REFERENCE
+     ═══════════════════════════════════════════════════════════════ -->
+<div class="section" id="config">
+  <h2>10. Configuration Reference</h2>
+  <p>All settings are loaded from environment variables or a <code>.env</code> file via <code>pydantic-settings</code>.</p>
+  <table>
+    <thead><tr><th>Variable</th><th>Description</th><th>Default</th></tr></thead>
+    <tbody>
+      <tr><td><code>DATABASE_URL</code></td><td>SQLAlchemy connection string for MySQL</td><td><code>mysql+pymysql://guestcheckin:guestcheckin@localhost:3306/guestcheckin</code></td></tr>
+      <tr><td><code>OLLAMA_BASE_URL</code></td><td>Base URL of the Ollama API</td><td><code>http://localhost:11434</code></td></tr>
+      <tr><td><code>OLLAMA_MODEL</code></td><td>Model tag to use for inference</td><td><code>llama3.1:8b</code></td></tr>
+      <tr><td><code>SMTP_HOST</code></td><td>SMTP server hostname</td><td><code>mailhog</code> (Docker) / <code>localhost</code> (local)</td></tr>
+      <tr><td><code>SMTP_PORT</code></td><td>SMTP server port</td><td><code>1025</code></td></tr>
+      <tr><td><code>SMTP_USER</code></td><td>SMTP username (empty for MailHog)</td><td><em>empty</em></td></tr>
+      <tr><td><code>SMTP_PASS</code></td><td>SMTP password (empty for MailHog)</td><td><em>empty</em></td></tr>
+      <tr><td><code>SMTP_FROM</code></td><td>Sender email address for outgoing mail</td><td><code>checkin@guestapp.local</code></td></tr>
+      <tr><td><code>UPLOAD_DIR</code></td><td>Filesystem path for ID document uploads</td><td><code>/app/uploads</code></td></tr>
+      <tr><td><code>LINK_SECRET</code></td><td>HMAC secret for secure link tokens — <strong>change in production!</strong></td><td><code>change-me-in-production</code></td></tr>
+      <tr><td><code>LINK_EXPIRY_HOURS</code></td><td>Hours before secure upload/payment links expire</td><td><code>1</code></td></tr>
+      <tr><td><code>API_KEY_HEADER</code></td><td>HTTP header name for API key authentication</td><td><code>X-API-Key</code></td></tr>
+      <tr><td><code>RATE_LIMIT</code></td><td>Rate limit per API key (slowapi format)</td><td><code>60/minute</code></td></tr>
+      <tr><td><code>CORS_ORIGINS</code></td><td>JSON array of allowed CORS origins for the chat widget</td><td><code>["http://localhost:3000","http://localhost:8000"]</code></td></tr>
+    </tbody>
+  </table>
+  <div class="warn"><strong>Security:</strong> Always change <code>LINK_SECRET</code> in production. Use a strong random string (32+ characters).</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     SECTION 11: API REFERENCE
+     ═══════════════════════════════════════════════════════════════ -->
+<div class="section" id="api-ref">
+  <h2>11. API Reference</h2>
+  <p>Base URL: <code>http://localhost:8000/api/v1</code></p>
+  <p>Authentication: Endpoints marked <span class="badge badge-key">API Key</span> require the <code>X-API-Key</code> header. Endpoints marked <span class="badge badge-token">Token</span> require <code>Authorization: Bearer &lt;session_token&gt;</code>.</p>
+
+  <!-- 1. POST /sessions -->
+  <div class="endpoint">
+    <div class="endpoint-header">
+      <span class="method post">POST</span>
+      <span class="path">/sessions</span>
+      <span class="badge badge-key">API Key</span>
+    </div>
+    <div class="endpoint-body">
+      <p>Create a new check-in session for a booking reference.</p>
+      <h4>Request Body</h4>
+<pre>{ "booking_reference": "BK-2024-001" }</pre>
+      <h4>Response <code>201</code></h4>
+<pre>{
+  "id": "a1b2c3d4-...",
+  "reservation_id": "r5e6f7-...",
+  "guest_id": "g8h9i0-...",
+  "current_state": "INIT",
+  "session_token": "tok_abc123...",
+  "status": "active",
+  "created_at": "2025-06-10T12:00:00Z",
+  "updated_at": "2025-06-10T12:00:00Z"
+}</pre>
+      <h4>Error Responses</h4>
+      <p><code>404</code> — Reservation not found for the given booking reference.<br><code>401</code> — Invalid or missing API key.</p>
+    </div>
+  </div>
+
+  <!-- 2. GET /sessions/{session_id} -->
+  <div class="endpoint">
+    <div class="endpoint-header">
+      <span class="method get">GET</span>
+      <span class="path">/sessions/{session_id}</span>
+      <span class="badge badge-key">API Key</span>
+    </div>
+    <div class="endpoint-body">
+      <p>Retrieve session status, current state, and metadata.</p>
+      <h4>Response <code>200</code></h4>
+<pre>{
+  "id": "a1b2c3d4-...",
+  "reservation_id": "r5e6f7-...",
+  "guest_id": "g8h9i0-...",
+  "current_state": "PRIVACY_POLICY_PENDING",
+  "session_token": "tok_abc123...",
+  "status": "active",
+  "created_at": "2025-06-10T12:00:00Z",
+  "updated_at": "2025-06-10T12:01:00Z"
+}</pre>
+      <p><code>404</code> — Session not found.</p>
+    </div>
+  </div>
+
+  <!-- 3. POST /sessions/{session_id}/messages -->
+  <div class="endpoint">
+    <div class="endpoint-header">
+      <span class="method post">POST</span>
+      <span class="path">/sessions/{session_id}/messages</span>
+      <span class="badge badge-key">API Key</span>
+    </div>
+    <div class="endpoint-body">
+      <p>Send a guest message and receive the agent's response. The SessionManager processes the message through intent detection → MCP tool calls → state machine transition.</p>
+      <h4>Request Body</h4>
+<pre>{ "content": "I agree to the privacy policy" }</pre>
+      <h4>Response <code>200</code></h4>
+<pre>{
+  "message": {
+    "id": "m1n2o3-...",
+    "session_id": "a1b2c3d4-...",
+    "role": "agent",
+    "content": "Thank you! Now let's review the house rules...",
+    "intent_detected": "agree",
+    "tools_called": ["record_agreement"],
+    "created_at": "2025-06-10T12:02:00Z"
+  },
+  "current_state": "HOUSE_RULES_PENDING",
+  "required_action": "Accept or decline the House Rules",
+  "session_status": "active"
+}</pre>
+      <p><code>404</code> — Session not found.<br><code>422</code> — Invalid state transition.<br><code>503</code> — Service temporarily unavailable (LLM or DB error).</p>
+    </div>
+  </div>
+
+  <!-- 4. GET /sessions/{session_id}/messages -->
+  <div class="endpoint">
+    <div class="endpoint-header">
+      <span class="method get">GET</span>
+      <span class="path">/sessions/{session_id}/messages</span>
+      <span class="badge badge-key">API Key</span>
+    </div>
+    <div class="endpoint-body">
+      <p>Retrieve the full message history for a session, ordered chronologically.</p>
+      <h4>Response <code>200</code></h4>
+<pre>[
+  { "id": "msg1", "session_id": "...", "role": "agent",
+    "content": "Welcome! ...", "intent_detected": null,
+    "tools_called": null, "created_at": "..." },
+  { "id": "msg2", "session_id": "...", "role": "guest",
+    "content": "I agree", "intent_detected": "agree",
+    "tools_called": ["record_agreement"], "created_at": "..." }
+]</pre>
+    </div>
+  </div>
+
+  <!-- 5. GET /sessions/{session_id}/state -->
+  <div class="endpoint">
+    <div class="endpoint-header">
+      <span class="method get">GET</span>
+      <span class="path">/sessions/{session_id}/state</span>
+      <span class="badge badge-key">API Key</span>
+    </div>
+    <div class="endpoint-body">
+      <p>Get the current state machine state and required action.</p>
+      <h4>Response <code>200</code></h4>
+<pre>{
+  "session_id": "a1b2c3d4-...",
+  "current_state": "PRIVACY_POLICY_PENDING",
+  "required_action": "Accept or decline the Privacy Policy & Data Usage agreement",
+  "status": "active"
+}</pre>
+    </div>
+  </div>
+
+  <!-- 6. POST /sessions/{session_id}/resume -->
+  <div class="endpoint">
+    <div class="endpoint-header">
+      <span class="method post">POST</span>
+      <span class="path">/sessions/{session_id}/resume</span>
+      <span class="badge badge-key">API Key</span>
+    </div>
+    <div class="endpoint-body">
+      <p>Restart a REFUSED session from the beginning (INIT state).</p>
+      <h4>Response <code>200</code></h4>
+<pre>{
+  "session_id": "a1b2c3d4-...",
+  "current_state": "INIT",
+  "required_action": "Initialize check-in session",
+  "status": "active"
+}</pre>
+      <p><code>422</code> — Session is not in REFUSED state (cannot resume).</p>
+    </div>
+  </div>
+
+  <!-- 7. GET /reservations/{booking_ref} -->
+  <div class="endpoint">
+    <div class="endpoint-header">
+      <span class="method get">GET</span>
+      <span class="path">/reservations/{booking_reference}</span>
+      <span class="badge badge-key">API Key</span>
+    </div>
+    <div class="endpoint-body">
+      <p>Look up a reservation by booking reference.</p>
+      <h4>Response <code>200</code></h4>
+<pre>{
+  "id": "r5e6f7-...",
+  "booking_reference": "BK-2024-001",
+  "property_name": "Seaside Cottage",
+  "property_address": "123 Ocean Drive, Malibu, CA",
+  "guest_name": "Jane Smith",
+  "guest_email": "jane@example.com",
+  "guest_phone": "+1-555-0123",
+  "check_in_date": "2025-07-01",
+  "check_out_date": "2025-07-05",
+  "num_guests": 2,
+  "wifi_network": "SeasideGuest",
+  "wifi_password": "ocean123",
+  "lockbox_code": "4521",
+  "emergency_contact": "+1-555-9999",
+  "created_at": "...", "updated_at": "..."
+}</pre>
+      <p><code>404</code> — Reservation not found.</p>
+    </div>
+  </div>
+
+  <!-- 8. POST /otp/trigger -->
+  <div class="endpoint">
+    <div class="endpoint-header">
+      <span class="method post">POST</span>
+      <span class="path">/otp/trigger</span>
+      <span class="badge badge-token">Token</span>
+    </div>
+    <div class="endpoint-body">
+      <p>Generate and send a 6-digit OTP to the guest's email. Requires session token auth.</p>
+      <h4>Response <code>200</code></h4>
+<pre>{
+  "message": "OTP sent",
+  "email": "j***@example.com",
+  "expires_at": "2025-06-10T12:10:00Z"
+}</pre>
+    </div>
+  </div>
+
+  <!-- 9. POST /otp/verify -->
+  <div class="endpoint">
+    <div class="endpoint-header">
+      <span class="method post">POST</span>
+      <span class="path">/otp/verify</span>
+      <span class="badge badge-token">Token</span>
+    </div>
+    <div class="endpoint-body">
+      <p>Verify a 6-digit OTP code. Maximum 3 attempts per code.</p>
+      <h4>Request Body</h4>
+<pre>{ "otp_code": "123456" }</pre>
+      <h4>Response <code>200</code></h4>
+<pre>{
+  "verified": true,
+  "attempts_remaining": 2,
+  "message": "OTP verified successfully."
+}</pre>
+      <p><code>404</code> — No active OTP found (expired or none triggered).</p>
+    </div>
+  </div>
+
+  <!-- 10. POST /id-upload/{token} -->
+  <div class="endpoint">
+    <div class="endpoint-header">
+      <span class="method post">POST</span>
+      <span class="path">/id-upload/{token}</span>
+    </div>
+    <div class="endpoint-body">
+      <p>Upload an ID document via a secure, time-limited link token (generated by the agent). Accepts <code>multipart/form-data</code>.</p>
+      <h4>Request</h4>
+<pre>Content-Type: multipart/form-data
+file: &lt;document image/PDF&gt;</pre>
+      <h4>Response <code>200</code></h4>
+<pre>{
+  "message": "ID document uploaded successfully",
+  "file_path": "/app/uploads/ids/session_abc_passport.jpg",
+  "verified": true
+}</pre>
+      <p><code>401</code> — Invalid or expired link token.<br><code>413</code> — File too large (>10 MB).<br><code>422</code> — Invalid file extension.</p>
+    </div>
+  </div>
+
+  <!-- 11. POST /incidental/{token} -->
+  <div class="endpoint">
+    <div class="endpoint-header">
+      <span class="method post">POST</span>
+      <span class="path">/incidental/{token}</span>
+    </div>
+    <div class="endpoint-body">
+      <p>Select incidental protection and process mock payment via secure link token.</p>
+      <h4>Request Body</h4>
+<pre>{ "selection_type": "damage_waiver" }</pre>
+      <h4>Response <code>200</code></h4>
+<pre>{
+  "selection_type": "damage_waiver",
+  "amount": 49.99,
+  "payment_status": "completed",
+  "payment_reference": "txn_mock_abc123",
+  "message": "Payment processed successfully."
+}</pre>
+      <p><code>401</code> — Invalid or expired link token.<br><code>422</code> — Invalid selection type.</p>
+    </div>
+  </div>
+
+  <!-- 12. GET /guests/{guest_id}/audit-trail -->
+  <div class="endpoint">
+    <div class="endpoint-header">
+      <span class="method get">GET</span>
+      <span class="path">/guests/{guest_id}/audit-trail</span>
+      <span class="badge badge-key">API Key</span>
+    </div>
+    <div class="endpoint-body">
+      <p>Retrieve the full audit trail for a guest — all state transitions, tool calls, and actions.</p>
+      <h4>Response <code>200</code></h4>
+<pre>[
+  {
+    "id": "at1-...",
+    "session_id": "...",
+    "action": "state_transition",
+    "from_state": "INIT",
+    "to_state": "PRIVACY_POLICY_PENDING",
+    "details": { "intent": "start" },
+    "actor": "guest",
+    "created_at": "2025-06-10T12:00:05Z"
+  }
+]</pre>
+    </div>
+  </div>
+
+  <!-- WebSocket -->
+  <div class="endpoint">
+    <div class="endpoint-header">
+      <span class="method ws">WS</span>
+      <span class="path">/ws/{session_id}?token={session_token}</span>
+    </div>
+    <div class="endpoint-body">
+      <p>Real-time bidirectional chat via WebSocket. Authenticate with the session token as a query parameter.</p>
+      <h4>Connect</h4>
+<pre>ws://localhost:8000/api/v1/ws/a1b2c3d4-...?token=tok_abc123...</pre>
+      <h4>Welcome Message (server → client on connect)</h4>
+<pre>{ "type": "welcome", "data": {
+  "session_id": "...",
+  "current_state": "INIT",
+  "required_action": "Initialize check-in session",
+  "session_status": "active"
+}}</pre>
+      <h4>Guest Sends</h4>
+<pre>{ "content": "I agree to the privacy policy" }</pre>
+      <h4>Agent Responds</h4>
+<pre>{ "type": "agent", "data": {
+  "message": { "session_id": "...", "role": "agent",
+    "content": "Thank you! ...", "intent_detected": "agree",
+    "tools_called": ["record_agreement"] },
+  "current_state": "HOUSE_RULES_PENDING",
+  "required_action": "Accept or decline the House Rules",
+  "session_status": "active"
+}}</pre>
+      <h4>Error Message</h4>
+<pre>{ "type": "error", "data": { "detail": "Invalid message format" } }</pre>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     SECTION 12: WIDGET INTEGRATION GUIDE
+     ═══════════════════════════════════════════════════════════════ -->
+<div class="section" id="widget">
+  <h2>12. Widget Integration Guide</h2>
+  <p>The guest check-in widget is a lightweight, embeddable chat bubble built with vanilla JavaScript. No React, Vue, or build step required.</p>
+
+  <h3>12.1 Basic Integration</h3>
+  <p>Add the CSS and JS to your page, then initialize the widget:</p>
+<pre>&lt;!-- In the &lt;head&gt; of your page --&gt;
+&lt;link rel="stylesheet" href="https://your-domain.com/static/chat-widget.css"&gt;
+
+&lt;!-- Before &lt;/body&gt; --&gt;
+&lt;script src="https://your-domain.com/static/chat-widget.js"&gt;&lt;/script&gt;
+&lt;script&gt;
+  var widget = GuestCheckInWidget.init({
+    sessionId: 'SESSION_ID_FROM_API',
+    token:     'SESSION_TOKEN_FROM_API',
+    wsUrl:     'wss://your-domain.com/api/v1/ws/SESSION_ID?token=TOKEN',
+    apiUrl:    'https://your-domain.com/api/v1'
+  });
+&lt;/script&gt;</pre>
+
+  <h3>12.2 Configuration Options</h3>
+  <table>
+    <thead><tr><th>Option</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td><code>sessionId</code></td><td>string</td><td>Yes</td><td>Session ID from <code>POST /sessions</code></td></tr>
+      <tr><td><code>token</code></td><td>string</td><td>Yes</td><td>Session token for WebSocket auth</td></tr>
+      <tr><td><code>wsUrl</code></td><td>string</td><td>Yes</td><td>Full WebSocket URL including token query param</td></tr>
+      <tr><td><code>apiUrl</code></td><td>string</td><td>Yes</td><td>Base REST API URL (e.g. <code>https://your-domain.com/api/v1</code>)</td></tr>
+      <tr><td><code>theme</code></td><td>string</td><td>No</td><td>Widget theme: <code>"light"</code> (default) or <code>"dark"</code></td></tr>
+    </tbody>
+  </table>
+
+  <h3>12.3 Event Callbacks</h3>
+  <p>Subscribe to message events after initialization:</p>
+<pre>widget.callbacks.message.push(function(msg) {
+  console.log('New message:', msg);
+});</pre>
+
+  <h3>12.4 Customization</h3>
+  <ul>
+    <li><strong>Theme</strong> — Pass <code>theme: "dark"</code> to <code>init()</code> for dark mode.</li>
+    <li><strong>Position</strong> — The widget appears as a floating action button (FAB) in the bottom-right corner. Override CSS class <code>.gci-fab</code> and <code>.gci-widget</code> to reposition.</li>
+    <li><strong>Progress Steps</strong> — The widget shows a 6-step progress bar automatically mapping states to steps (Privacy → Rules → Rental → Info → ID → Incidental).</li>
+    <li><strong>Auto-reconnect</strong> — The WebSocket client reconnects automatically with exponential backoff (1s → 30s max) if the connection drops.</li>
+  </ul>
+
+  <h3>12.5 Typical Integration Flow</h3>
+  <ol>
+    <li>Your backend calls <code>POST /api/v1/sessions</code> with the booking reference and API key.</li>
+    <li>The response includes <code>id</code> (session ID) and <code>session_token</code>.</li>
+    <li>Pass these values to <code>GuestCheckInWidget.init()</code> on your frontend page.</li>
+    <li>The widget opens, connects via WebSocket, and the conversation begins.</li>
+  </ol>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     SECTION 13: STATE MACHINE REFERENCE
+     ═══════════════════════════════════════════════════════════════ -->
+<div class="section" id="state-ref">
+  <h2>13. State Machine Reference</h2>
+  <p>Nine states govern the guest onboarding flow. The LLM agent detects intent and calls MCP tools; the state machine validates every transition.</p>
+  <table class="state-table">
+    <thead><tr><th>State</th><th>Required Action</th><th>Valid Intents</th><th>Next (Success)</th><th>Next (Decline)</th></tr></thead>
+    <tbody>
+      <tr><td>INIT</td><td>Initialize check-in session</td><td><code>start</code></td><td>PRIVACY_POLICY_PENDING</td><td>—</td></tr>
+      <tr><td>PRIVACY_POLICY_PENDING</td><td>Accept or decline the Privacy Policy &amp; Data Usage</td><td><code>agree</code>, <code>decline</code></td><td>HOUSE_RULES_PENDING</td><td>REFUSED</td></tr>
+      <tr><td>HOUSE_RULES_PENDING</td><td>Accept or decline the House Rules</td><td><code>agree</code>, <code>decline</code></td><td>RENTAL_AGREEMENT_PENDING</td><td>REFUSED</td></tr>
+      <tr><td>RENTAL_AGREEMENT_PENDING</td><td>Accept or decline the Rental Agreement</td><td><code>agree</code>, <code>decline</code></td><td>INFO_VERIFY_PENDING</td><td>REFUSED</td></tr>
+      <tr><td>INFO_VERIFY_PENDING</td><td>Confirm personal information (name, email, phone, guests)</td><td><code>confirm</code>, <code>provide_info</code></td><td>ID_VERIFY_PENDING</td><td>— (stays in state on <code>provide_info</code>)</td></tr>
+      <tr><td>ID_VERIFY_PENDING</td><td>Upload government-issued ID via secure link</td><td><code>upload_id</code></td><td>INCIDENTAL_PROTECTION_PENDING</td><td>—</td></tr>
+      <tr><td>INCIDENTAL_PROTECTION_PENDING</td><td>Select Damage Waiver or Security Hold + payment</td><td><code>select_option</code></td><td>COMPLETED</td><td>—</td></tr>
+      <tr><td>COMPLETED</td><td>None — onboarding finished</td><td>— (terminal)</td><td>—</td><td>—</td></tr>
+      <tr><td>REFUSED</td><td>Guest declined an agreement; onboarding halted</td><td><code>resume</code></td><td>INIT (restart)</td><td>—</td></tr>
+    </tbody>
+  </table>
+  <div class="note"><strong>Key rule:</strong> The LLM agent <em>never</em> advances state directly. It detects intent and calls MCP tools. The state machine validates the tool result and transitions. This prevents hallucination from skipping steps.</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     SECTION 14: MCP TOOLS REFERENCE
+     ═══════════════════════════════════════════════════════════════ -->
+<div class="section" id="mcp-ref">
+  <h2>14. MCP Tools Reference</h2>
+  <p>The LLM agent has access to 12 MCP (Model Context Protocol) tools — internal Python functions that handle data operations. The agent calls these tools; the state machine validates results and transitions.</p>
+
+  <h3>1. get_reservation</h3>
+  <table>
+    <tbody>
+      <tr><td style="width:140px;font-weight:600;">Description</td><td>Retrieve reservation details by booking reference. Returns property name, guest info, dates, Wi-Fi, lockbox code, and agreement texts.</td></tr>
+      <tr><td style="font-weight:600;">Parameters</td><td><code>booking_reference</code> (string, required) — e.g. <code>"BK-2024-001"</code></td></tr>
+      <tr><td style="font-weight:600;">Returns</td><td>Reservation object with all fields, or <code>null</code> if not found</td></tr>
+      <tr><td style="font-weight:600;">Active In</td><td>Any state</td></tr>
+    </tbody>
+  </table>
+
+  <h3>2. record_agreement</h3>
+  <table>
+    <tbody>
+      <tr><td style="width:140px;font-weight:600;">Description</td><td>Record guest acceptance or refusal of an agreement (privacy policy, house rules, or rental agreement).</td></tr>
+      <tr><td style="font-weight:600;">Parameters</td><td><code>session_id</code> (string, required), <code>agreement_type</code> (string, required: <code>"privacy_policy"</code> | <code>"house_rules"</code> | <code>"rental_agreement"</code>), <code>accepted</code> (boolean, required), <code>guest_response</code> (string, optional)</td></tr>
+      <tr><td style="font-weight:600;">Returns</td><td><code>{ "recorded": true, "agreement_id": "...", "agreement_type": "...", "accepted": true/false }</code></td></tr>
+      <tr><td style="font-weight:600;">Active In</td><td>PRIVACY_POLICY_PENDING, HOUSE_RULES_PENDING, RENTAL_AGREEMENT_PENDING</td></tr>
+    </tbody>
+  </table>
+
+  <h3>3. update_guest_info</h3>
+  <table>
+    <tbody>
+      <tr><td style="width:140px;font-weight:600;">Description</td><td>Update guest personal information during the info verification step.</td></tr>
+      <tr><td style="font-weight:600;">Parameters</td><td><code>session_id</code> (string, required), <code>first_name</code> (string, optional), <code>last_name</code> (string, optional), <code>phone</code> (string, optional)</td></tr>
+      <tr><td style="font-weight:600;">Returns</td><td><code>{ "updated": true, "guest_id": "...", "updated_fields": [...], "first_name": "...", "last_name": "...", "email": "...", "phone": "..." }</code></td></tr>
+      <tr><td style="font-weight:600;">Active In</td><td>INFO_VERIFY_PENDING</td></tr>
+    </tbody>
+  </table>
+
+  <h3>4. trigger_otp</h3>
+  <table>
+    <tbody>
+      <tr><td style="width:140px;font-weight:600;">Description</td><td>Generate a 6-digit OTP and email it to the guest. Code expires in 10 minutes; max 3 verification attempts.</td></tr>
+      <tr><td style="font-weight:600;">Parameters</td><td><code>session_id</code> (string, required)</td></tr>
+      <tr><td style="font-weight:600;">Returns</td><td><code>{ "otp_sent": true, "email": "j***@example.com", "expires_in": "10 minutes" }</code></td></tr>
+      <tr><td style="font-weight:600;">Active In</td><td>INFO_VERIFY_PENDING</td></tr>
+    </tbody>
+  </table>
+
+  <h3>5. verify_otp</h3>
+  <table>
+    <tbody>
+      <tr><td style="width:140px;font-weight:600;">Description</td><td>Verify a 6-digit OTP code entered by the guest. Checks expiry and attempt count.</td></tr>
+      <tr><td style="font-weight:600;">Parameters</td><td><code>session_id</code> (string, required), <code>otp_code</code> (string, required)</td></tr>
+      <tr><td style="font-weight:600;">Returns</td><td><code>{ "verified": true/false, "attempts_remaining": N }</code></td></tr>
+      <tr><td style="font-weight:600;">Active In</td><td>INFO_VERIFY_PENDING</td></tr>
+    </tbody>
+  </table>
+
+  <h3>6. generate_id_upload_link</h3>
+  <table>
+    <tbody>
+      <tr><td style="width:140px;font-weight:600;">Description</td><td>Generate a secure, time-limited link (1 hour) for the guest to upload their government-issued ID.</td></tr>
+      <tr><td style="font-weight:600;">Parameters</td><td><code>session_id</code> (string, required)</td></tr>
+      <tr><td style="font-weight:600;">Returns</td><td><code>{ "upload_url": "/api/v1/id-upload?token=...", "expires_in": "1 hour(s)" }</code></td></tr>
+      <tr><td style="font-weight:600;">Active In</td><td>ID_VERIFY_PENDING</td></tr>
+    </tbody>
+  </table>
+
+  <h3>7. record_id_upload</h3>
+  <table>
+    <tbody>
+      <tr><td style="width:140px;font-weight:600;">Description</td><td>Record that the guest has uploaded their ID document. Updates guest record with file path and marks ID as verified.</td></tr>
+      <tr><td style="font-weight:600;">Parameters</td><td><code>session_id</code> (string, required), <code>file_path</code> (string, required)</td></tr>
+      <tr><td style="font-weight:600;">Returns</td><td><code>{ "uploaded": true, "guest_id": "...", "id_document_path": "...", "id_verified": true }</code></td></tr>
+      <tr><td style="font-weight:600;">Active In</td><td>ID_VERIFY_PENDING</td></tr>
+    </tbody>
+  </table>
+
+  <h3>8. generate_incidental_link</h3>
+  <table>
+    <tbody>
+      <tr><td style="width:140px;font-weight:600;">Description</td><td>Generate a secure, time-limited link for the guest to select incidental protection (Damage Waiver or Security Hold) and complete payment.</td></tr>
+      <tr><td style="font-weight:600;">Parameters</td><td><code>session_id</code> (string, required)</td></tr>
+      <tr><td style="font-weight:600;">Returns</td><td><code>{ "selection_url": "/api/v1/incidental/select?token=...", "expires_in": "1 hour(s)", "options": [...] }</code></td></tr>
+      <tr><td style="font-weight:600;">Active In</td><td>INCIDENTAL_PROTECTION_PENDING</td></tr>
+    </tbody>
+  </table>
+
+  <h3>9. record_incidental_selection</h3>
+  <table>
+    <tbody>
+      <tr><td style="width:140px;font-weight:600;">Description</td><td>Record the guest's incidental protection choice and process payment via the payment gateway.</td></tr>
+      <tr><td style="font-weight:600;">Parameters</td><td><code>session_id</code> (string, required), <code>selection_type</code> (string, required: <code>"damage_waiver"</code> | <code>"security_hold"</code>), <code>amount</code> (number, optional)</td></tr>
+      <tr><td style="font-weight:600;">Returns</td><td><code>{ "selected": true, "selection_id": "...", "selection_type": "...", "amount": 49.00, "payment": { "success": true, "transaction_id": "..." } }</code></td></tr>
+      <tr><td style="font-weight:600;">Active In</td><td>INCIDENTAL_PROTECTION_PENDING</td></tr>
+    </tbody>
+  </table>
+
+  <h3>10. get_arrival_instructions</h3>
+  <table>
+    <tbody>
+      <tr><td style="width:140px;font-weight:600;">Description</td><td>Generate formatted arrival instructions (property address, Wi-Fi, lockbox code, emergency contact) from the Jinja2 template.</td></tr>
+      <tr><td style="font-weight:600;">Parameters</td><td><code>session_id</code> (string, required)</td></tr>
+      <tr><td style="font-weight:600;">Returns</td><td><code>{ "instructions_html": "...", "property_name": "...", "check_in_date": "...", ... }</code></td></tr>
+      <tr><td style="font-weight:600;">Active In</td><td>COMPLETED</td></tr>
+    </tbody>
+  </table>
+
+  <h3>11. get_faq_answer</h3>
+  <table>
+    <tbody>
+      <tr><td style="width:140px;font-weight:600;">Description</td><td>Search the property knowledge base for an answer to the guest's question using keyword matching.</td></tr>
+      <tr><td style="font-weight:600;">Parameters</td><td><code>session_id</code> (string, required), <code>question</code> (string, required)</td></tr>
+      <tr><td style="font-weight:600;">Returns</td><td><code>{ "answer": "...", "category": "amenities" }</code> or <code>{ "answer": "I don't have information about that.", "category": null }</code></td></tr>
+      <tr><td style="font-weight:600;">Active In</td><td>Any state</td></tr>
+    </tbody>
+  </table>
+
+  <h3>12. get_current_state</h3>
+  <table>
+    <tbody>
+      <tr><td style="width:140px;font-weight:600;">Description</td><td>Get the guest's current onboarding state and required action. Used by the agent to understand where the guest is in the flow.</td></tr>
+      <tr><td style="font-weight:600;">Parameters</td><td><code>session_id</code> (string, required)</td></tr>
+      <tr><td style="font-weight:600;">Returns</td><td><code>{ "state": "PRIVACY_POLICY_PENDING", "required_action": "...", "description": "..." }</code></td></tr>
+      <tr><td style="font-weight:600;">Active In</td><td>Any state</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     SECTION 15: TROUBLESHOOTING
+     ═══════════════════════════════════════════════════════════════ -->
+<div class="section" id="troubleshooting">
+  <h2>15. Troubleshooting</h2>
+
+  <h3>15.1 Ollama Not Running / Model Not Found</h3>
+  <p><strong>Symptoms:</strong> Agent responses are slow or use fallback (regex-based) responses. Logs show <code>Connection refused</code> to <code>localhost:11434</code>.</p>
+  <p><strong>Solution:</strong></p>
+  <ol>
+    <li>Start Ollama: <code>ollama serve</code></li>
+    <li>Pull the model: <code>ollama pull llama3.1:8b</code></li>
+    <li>Verify: <code>curl http://localhost:11434/api/tags</code></li>
+    <li>If running in Docker, ensure <code>OLLAMA_BASE_URL=http://host.docker.internal:11434</code></li>
+  </ol>
+  <div class="note"><strong>Fallback:</strong> The system automatically falls back to regex-based intent matching when Ollama is unreachable. Guests can still complete onboarding, but responses will be less conversational.</div>
+
+  <h3>15.2 MySQL Connection Refused</h3>
+  <p><strong>Symptoms:</strong> <code>503 Service Unavailable</code> on all API calls. Logs show <code>Can't connect to MySQL server</code>.</p>
+  <p><strong>Solution:</strong></p>
+  <ol>
+    <li>Check container: <code>docker compose ps mysql</code></li>
+    <li>Wait for healthcheck: MySQL can take 10-30 seconds on first start.</li>
+    <li>Verify credentials in <code>.env</code> match <code>docker-compose.yml</code>.</li>
+    <li>Test connection: <code>docker compose exec mysql mysql -uguestcheckin -pguestcheckin guestcheckin</code></li>
+  </ol>
+
+  <h3>15.3 MailHog Not Receiving Emails</h3>
+  <p><strong>Symptoms:</strong> OTP emails are not appearing in the MailHog Web UI at <code>http://localhost:8025</code>.</p>
+  <p><strong>Solution:</strong></p>
+  <ol>
+    <li>Check MailHog container: <code>docker compose ps mailhog</code></li>
+    <li>Verify <code>SMTP_HOST=mailhog</code> and <code>SMTP_PORT=1025</code> in the app environment.</li>
+    <li>Test SMTP: <code>docker compose exec app python -c "import smtplib; s=smtplib.SMTP('mailhog',1025); s.sendmail('test@test.com','guest@example.com','Test'); print('OK')"</code></li>
+  </ol>
+
+  <h3>15.4 WebSocket Disconnects</h3>
+  <p><strong>Symptoms:</strong> Chat widget shows "Disconnected" or stops receiving messages.</p>
+  <p><strong>Solution:</strong></p>
+  <ol>
+    <li>The widget auto-reconnects with exponential backoff (1s → 30s). If it doesn't, refresh the page.</li>
+    <li>Check server logs for WebSocket errors: <code>docker compose logs app | grep WebSocket</code></li>
+    <li>Verify the session is still active: <code>GET /api/v1/sessions/{id}</code></li>
+    <li>Session state is persisted in MySQL — disconnection does not lose progress.</li>
+  </ol>
+
+  <h3>15.5 OTP Not Received</h3>
+  <p><strong>Symptoms:</strong> Guest reports not receiving the verification code email.</p>
+  <p><strong>Solution:</strong></p>
+  <ol>
+    <li>In development, check MailHog at <code>http://localhost:8025</code>.</li>
+    <li>Verify the guest's email in the reservation is correct.</li>
+    <li>Trigger a new OTP: the old code may have expired (10-minute window).</li>
+    <li>In production, check your SMTP provider's sending logs.</li>
+    <li>OTP delivery retries 3 times internally before reporting failure.</li>
+  </ol>
+
+  <h3>15.6 Rate Limiting</h3>
+  <p><strong>Symptoms:</strong> <code>429 Too Many Requests</code> responses.</p>
+  <p><strong>Solution:</strong> Default rate limit is 60 requests/minute per API key. Adjust <code>RATE_LIMIT</code> in <code>.env</code> if needed.</p>
+
+  <h3>15.7 Invalid State Transition (422)</h3>
+  <p><strong>Symptoms:</strong> <code>422 Unprocessable Entity</code> when sending a message.</p>
+  <p><strong>Solution:</strong> The LLM detected an intent that doesn't match the current state (e.g., guest said "I agree" while in ID_VERIFY_PENDING). The state machine rejects invalid transitions. The agent should clarify the required action. If the issue persists, check the state via <code>GET /sessions/{id}/state</code>.</p>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     SECTION 16: GLOSSARY
+     ═══════════════════════════════════════════════════════════════ -->
+<div class="section" id="glossary">
+  <h2>16. Glossary</h2>
+  <table>
+    <thead><tr><th>Term</th><th>Definition</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Booking Reference</strong></td><td>A unique code (e.g. <code>BK-2024-001</code>) identifying a reservation in the system.</td></tr>
+      <tr><td><strong>Session</strong></td><td>A check-in session linking a guest to a reservation. Tracks the current onboarding state.</td></tr>
+      <tr><td><strong>Session Token</strong></td><td>A time-limited token (24h) generated per session for authenticating guest-facing endpoints (OTP, ID upload, payment).</td></tr>
+      <tr><td><strong>State Machine</strong></td><td>The deterministic workflow engine with 9 states that enforces the onboarding sequence. The single source of truth for guest progress.</td></tr>
+      <tr><td><strong>Intent</strong></td><td>A classified guest action: <code>agree</code>, <code>decline</code>, <code>confirm</code>, <code>provide_info</code>, <code>upload_id</code>, <code>select_option</code>, <code>question</code>, <code>resume</code>, <code>start</code>.</td></tr>
+      <tr><td><strong>MCP Tool</strong></td><td>An internal Python function exposed to the LLM agent (e.g. <code>record_agreement</code>, <code>trigger_otp</code>). The agent calls tools; the state machine validates results.</td></tr>
+      <tr><td><strong>OTP</strong></td><td>One-Time Password — a 6-digit code emailed to the guest for identity verification. Expires in 10 minutes, max 3 attempts.</td></tr>
+      <tr><td><strong>Incidental Protection</strong></td><td>Damage Waiver ($49.00, non-refundable) or Security Hold ($250.00, refundable) selected during onboarding.</td></tr>
+      <tr><td><strong>Secure Link</strong></td><td>A time-limited (1 hour), token-authenticated URL for ID upload or incidental protection selection.</td></tr>
+      <tr><td><strong>Audit Trail</strong></td><td>An immutable log of every state transition, tool call, and guest action with timestamps.</td></tr>
+      <tr><td><strong>Ollama</strong></td><td>Local LLM runtime that serves the Llama 3.1 8B model for intent detection and conversation.</td></tr>
+      <tr><td><strong>MailHog</strong></td><td>A development SMTP server that captures emails for testing (Web UI at port 8025).</td></tr>
+      <tr><td><strong>Pydantic</strong></td><td>Python data validation library used for request/response schemas and settings management.</td></tr>
+      <tr><td><strong>Alembic</strong></td><td>Database migration tool that version-controls schema changes for SQLAlchemy.</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     SECTION 17: APPENDIX — DATABASE SCHEMA
+     ═══════════════════════════════════════════════════════════════ -->
+<div class="section" id="db-schema">
+  <h2>17. Appendix: Database Schema</h2>
+  <p>10 tables managed by SQLAlchemy ORM with Alembic migrations.</p>
+
+  <h3>reservations</h3>
+  <table>
+    <thead><tr><th>Column</th><th>Type</th><th>Constraints</th></tr></thead>
+    <tbody>
+      <tr><td>id</td><td>VARCHAR(36)</td><td>PK, UUID default</td></tr>
+      <tr><td>booking_reference</td><td>VARCHAR(50)</td><td>UNIQUE, NOT NULL, INDEXED</td></tr>
+      <tr><td>property_name</td><td>VARCHAR(255)</td><td>NOT NULL</td></tr>
+      <tr><td>property_address</td><td>TEXT</td><td>NOT NULL</td></tr>
+      <tr><td>guest_name</td><td>VARCHAR(255)</td><td>NOT NULL</td></tr>
+      <tr><td>guest_email</td><td>VARCHAR(255)</td><td>NOT NULL</td></tr>
+      <tr><td>guest_phone</td><td>VARCHAR(50)</td><td>NULLABLE</td></tr>
+      <tr><td>check_in_date</td><td>DATE</td><td>NOT NULL</td></tr>
+      <tr><td>check_out_date</td><td>DATE</td><td>NOT NULL</td></tr>
+      <tr><td>num_guests</td><td>INTEGER</td><td>DEFAULT 1</td></tr>
+      <tr><td>wifi_network</td><td>VARCHAR(255)</td><td>NULLABLE</td></tr>
+      <tr><td>wifi_password</td><td>VARCHAR(255)</td><td>NULLABLE</td></tr>
+      <tr><td>lockbox_code</td><td>VARCHAR(50)</td><td>NULLABLE</td></tr>
+      <tr><td>emergency_contact</td><td>VARCHAR(255)</td><td>NULLABLE</td></tr>
+      <tr><td>house_rules_text</td><td>TEXT</td><td>NOT NULL</td></tr>
+      <tr><td>rental_agreement_text</td><td>TEXT</td><td>NOT NULL</td></tr>
+      <tr><td>privacy_policy_text</td><td>TEXT</td><td>NOT NULL</td></tr>
+      <tr><td>created_at</td><td>DATETIME</td><td>DEFAULT now()</td></tr>
+      <tr><td>updated_at</td><td>DATETIME</td><td>DEFAULT now(), onupdate now()</td></tr>
+    </tbody>
+  </table>
+
+  <h3>guests</h3>
+  <table>
+    <thead><tr><th>Column</th><th>Type</th><th>Constraints</th></tr></thead>
+    <tbody>
+      <tr><td>id</td><td>VARCHAR(36)</td><td>PK, UUID default</td></tr>
+      <tr><td>email</td><td>VARCHAR(255)</td><td>UNIQUE, NOT NULL, INDEXED</td></tr>
+      <tr><td>first_name</td><td>VARCHAR(255)</td><td>NOT NULL</td></tr>
+      <tr><td>last_name</td><td>VARCHAR(255)</td><td>NOT NULL</td></tr>
+      <tr><td>phone</td><td>VARCHAR(50)</td><td>NULLABLE</td></tr>
+      <tr><td>id_document_path</td><td>VARCHAR(255)</td><td>NULLABLE</td></tr>
+      <tr><td>id_verified</td><td>BOOLEAN</td><td>DEFAULT FALSE</td></tr>
+      <tr><td>created_at</td><td>DATETIME</td><td>DEFAULT now()</td></tr>
+      <tr><td>updated_at</td><td>DATETIME</td><td>DEFAULT now(), onupdate now()</td></tr>
+    </tbody>
+  </table>
+
+  <h3>sessions</h3>
+  <table>
+    <thead><tr><th>Column</th><th>Type</th><th>Constraints</th></tr></thead>
+    <tbody>
+      <tr><td>id</td><td>VARCHAR(36)</td><td>PK, UUID default</td></tr>
+      <tr><td>reservation_id</td><td>VARCHAR(36)</td><td>FK → reservations.id, NOT NULL</td></tr>
+      <tr><td>guest_id</td><td>VARCHAR(36)</td><td>FK → guests.id, NOT NULL</td></tr>
+      <tr><td>current_state</td><td>VARCHAR(50)</td><td>DEFAULT 'INIT'</td></tr>
+      <tr><td>session_token</td><td>VARCHAR(255)</td><td>UNIQUE, NOT NULL, INDEXED</td></tr>
+      <tr><td>status</td><td>VARCHAR(20)</td><td>DEFAULT 'active'</td></tr>
+      <tr><td>last_message_at</td><td>DATETIME</td><td>NULLABLE</td></tr>
+      <tr><td>created_at</td><td>DATETIME</td><td>DEFAULT now()</td></tr>
+      <tr><td>updated_at</td><td>DATETIME</td><td>DEFAULT now(), onupdate now()</td></tr>
+    </tbody>
+  </table>
+
+  <h3>agreements</h3>
+  <table>
+    <thead><tr><th>Column</th><th>Type</th><th>Constraints</th></tr></thead>
+    <tbody>
+      <tr><td>id</td><td>VARCHAR(36)</td><td>PK, UUID default</td></tr>
+      <tr><td>session_id</td><td>VARCHAR(36)</td><td>FK → sessions.id, NOT NULL</td></tr>
+      <tr><td>agreement_type</td><td>VARCHAR(50)</td><td>NOT NULL (privacy_policy / house_rules / rental_agreement)</td></tr>
+      <tr><td>accepted</td><td>BOOLEAN</td><td>NOT NULL</td></tr>
+      <tr><td>guest_response</td><td>VARCHAR(500)</td><td>NULLABLE</td></tr>
+      <tr><td>created_at</td><td>DATETIME</td><td>DEFAULT now()</td></tr>
+    </tbody>
+  </table>
+
+  <h3>otp_verifications</h3>
+  <table>
+    <thead><tr><th>Column</th><th>Type</th><th>Constraints</th></tr></thead>
+    <tbody>
+      <tr><td>id</td><td>VARCHAR(36)</td><td>PK, UUID default</td></tr>
+      <tr><td>session_id</td><td>VARCHAR(36)</td><td>FK → sessions.id, NOT NULL</td></tr>
+      <tr><td>email</td><td>VARCHAR(255)</td><td>NOT NULL</td></tr>
+      <tr><td>otp_code</td><td>VARCHAR(10)</td><td>NOT NULL, INDEXED</td></tr>
+      <tr><td>verified</td><td>BOOLEAN</td><td>DEFAULT FALSE</td></tr>
+      <tr><td>attempts</td><td>INTEGER</td><td>DEFAULT 0</td></tr>
+      <tr><td>max_attempts</td><td>INTEGER</td><td>DEFAULT 3</td></tr>
+      <tr><td>expires_at</td><td>DATETIME</td><td>NOT NULL</td></tr>
+      <tr><td>created_at</td><td>DATETIME</td><td>DEFAULT now()</td></tr>
+    </tbody>
+  </table>
+
+  <h3>incidental_selections</h3>
+  <table>
+    <thead><tr><th>Column</th><th>Type</th><th>Constraints</th></tr></thead>
+    <tbody>
+      <tr><td>id</td><td>VARCHAR(36)</td><td>PK, UUID default</td></tr>
+      <tr><td>session_id</td><td>VARCHAR(36)</td><td>FK → sessions.id, NOT NULL</td></tr>
+      <tr><td>selection_type</td><td>VARCHAR(50)</td><td>NOT NULL (damage_waiver / security_hold)</td></tr>
+      <tr><td>amount</td><td>FLOAT</td><td>NOT NULL</td></tr>
+      <tr><td>payment_status</td><td>VARCHAR(20)</td><td>DEFAULT 'pending'</td></tr>
+      <tr><td>payment_reference</td><td>VARCHAR(255)</td><td>NULLABLE</td></tr>
+      <tr><td>created_at</td><td>DATETIME</td><td>DEFAULT now()</td></tr>
+    </tbody>
+  </table>
+
+  <h3>messages</h3>
+  <table>
+    <thead><tr><th>Column</th><th>Type</th><th>Constraints</th></tr></thead>
+    <tbody>
+      <tr><td>id</td><td>VARCHAR(36)</td><td>PK, UUID default</td></tr>
+      <tr><td>session_id</td><td>VARCHAR(36)</td><td>FK → sessions.id, NOT NULL</td></tr>
+      <tr><td>role</td><td>VARCHAR(20)</td><td>NOT NULL (guest / agent / system)</td></tr>
+      <tr><td>content</td><td>TEXT</td><td>NOT NULL</td></tr>
+      <tr><td>intent_detected</td><td>VARCHAR(50)</td><td>NULLABLE</td></tr>
+      <tr><td>tools_called</td><td>JSON</td><td>NULLABLE</td></tr>
+      <tr><td>created_at</td><td>DATETIME</td><td>DEFAULT now()</td></tr>
+    </tbody>
+  </table>
+
+  <h3>audit_trail</h3>
+  <table>
+    <thead><tr><th>Column</th><th>Type</th><th>Constraints</th></tr></thead>
+    <tbody>
+      <tr><td>id</td><td>VARCHAR(36)</td><td>PK, UUID default</td></tr>
+      <tr><td>session_id</td><td>VARCHAR(36)</td><td>FK → sessions.id, NOT NULL</td></tr>
+      <tr><td>action</td><td>VARCHAR(100)</td><td>NOT NULL</td></tr>
+      <tr><td>from_state</td><td>VARCHAR(50)</td><td>NULLABLE</td></tr>
+      <tr><td>to_state</td><td>VARCHAR(50)</td><td>NULLABLE</td></tr>
+      <tr><td>details</td><td>JSON</td><td>NULLABLE</td></tr>
+      <tr><td>actor</td><td>VARCHAR(20)</td><td>NOT NULL (guest / agent / system)</td></tr>
+      <tr><td>created_at</td><td>DATETIME</td><td>DEFAULT now()</td></tr>
+    </tbody>
+  </table>
+
+  <h3>knowledge_base</h3>
+  <table>
+    <thead><tr><th>Column</th><th>Type</th><th>Constraints</th></tr></thead>
+    <tbody>
+      <tr><td>id</td><td>VARCHAR(36)</td><td>PK, UUID default</td></tr>
+      <tr><td>property_id</td><td>VARCHAR(50)</td><td>NOT NULL, INDEXED</td></tr>
+      <tr><td>question</td><td>TEXT</td><td>NOT NULL</td></tr>
+      <tr><td>answer</td><td>TEXT</td><td>NOT NULL</td></tr>
+      <tr><td>category</td><td>VARCHAR(50)</td><td>NULLABLE</td></tr>
+      <tr><td>created_at</td><td>DATETIME</td><td>DEFAULT now()</td></tr>
+      <tr><td>updated_at</td><td>DATETIME</td><td>DEFAULT now(), onupdate now()</td></tr>
+    </tbody>
+  </table>
+
+  <h3>api_keys</h3>
+  <table>
+    <thead><tr><th>Column</th><th>Type</th><th>Constraints</th></tr></thead>
+    <tbody>
+      <tr><td>id</td><td>VARCHAR(36)</td><td>PK, UUID default</td></tr>
+      <tr><td>key</td><td>VARCHAR(255)</td><td>UNIQUE, NOT NULL, INDEXED</td></tr>
+      <tr><td>name</td><td>VARCHAR(255)</td><td>NOT NULL</td></tr>
+      <tr><td>is_active</td><td>BOOLEAN</td><td>DEFAULT TRUE</td></tr>
+      <tr><td>created_at</td><td>DATETIME</td><td>DEFAULT now()</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="footer">
+  <p>Guest Check-In System — User Manual v1.0.0 — June 2025</p>
+</div>
+
+</body>
+</html>

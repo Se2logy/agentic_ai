@@ -1,0 +1,6 @@
+{
+  "task_id": "TASK-004-003",
+  "done": true,
+  "notes": "Implemented complete state machine in app/state_machine/: states.py (State enum + STATE_INFO dict with 9 states), transitions.py (VALID_TRANSITIONS table + can_transition/get_next_state/get_required_action), machine.py (StateMachine class with async advance/decline/resume/get_current_state + audit logging), audit.py (standalone log_audit function), exceptions.py (InvalidTransitionError, SessionNotFoundError, ActionRequiredError). All 45 unit tests pass: full happy path (INIT→COMPLETED), decline at each agreement state→REFUSED, resume from REFUSED→INIT, invalid transitions raise InvalidTransitionError, audit trail entries created for every transition with correct from/to/actor/details. Also added pytest.ini with asyncio_mode=auto for async test fixture support. Build validates (py_compile on all files).",
+  "add_tasks": []
+}

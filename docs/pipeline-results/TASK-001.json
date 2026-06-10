@@ -1,0 +1,6 @@
+{
+  "task_id": "TASK-001",
+  "done": true,
+  "notes": "Spec written by orchestrator (spec-builder timed out twice). Full spec with 17 sections: overview, problem statement, solution, state machine (7 states + transitions table), LLM agent design (Ollama + Llama 3.1 8B), 12 MCP tools, REST API (10 endpoints + WebSocket), MySQL schema (10 tables), reference web chat widget, project directory structure, tech stack (all open-source), security, error handling, testing requirements (unit + E2E + integration), NFRs, future enhancements. 5 mockups generated + PDF. Testing Requirements section included with unit, E2E, and integration tests.",
+  "add_tasks": []
+}

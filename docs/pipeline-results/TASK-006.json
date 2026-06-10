@@ -1,0 +1,61 @@
+{
+  "task_id": "TASK-006",
+  "done": false,
+  "notes": "Code review complete. 6 critical issues, 8 important issues, 14 minor issues found. Criticals: plaintext OTP storage (timing attack), insecure LINK_SECRET default, plaintext API key storage, no absolute session token expiry, no WebSocket rate limiting, duplicate agreement recording. Must-fix items added as fix tasks.",
+  "add_tasks": [
+    {
+      "title": "Fix — Hash OTP codes before storage, use constant-time comparison",
+      "description": "CRITICAL (C1): OTP codes are stored plaintext in otp_verifications.otp_code and compared with == (timing attack). Fix: hash with SHA-256+salt before storage, use hmac.compare_digest for verification. See code-review.md § Critical Issues C1. Files: app/models/otp_verification.py, app/mcp_tools/otp_tools.py, app/api/otp.py.",
+      "category": "developer",
+      "order": 1,
+      "depends_on": [],
+      "done": false,
+      "notes": ""
+    },
+    {
+      "title": "Fix — Reject default LINK_SECRET in production, validate at startup",
+      "description": "CRITICAL (C2): LINK_SECRET defaults to 'change-me-in-production' — anyone who knows this can forge HMAC-signed tokens for ID upload and incidental payment links. Add a pydantic validator to Settings that raises if LINK_SECRET is the default and the app isn't in dev mode. See code-review.md § C2. File: app/config.py.",
+      "category": "developer",
+      "order": 2,
+      "depends_on": [],
+      "done": false,
+      "notes": ""
+    },
+    {
+      "title": "Fix — Hash API keys before database storage",
+      "description": "CRITICAL (C3): API keys stored as plaintext in api_keys.key column. DB compromise leaks all keys. Fix: store SHA-256 hash, compare incoming key hash against stored hash. Update seed data and auth module. See code-review.md § C3. Files: app/models/api_key.py, app/auth/api_key.py, seed/seed_api_keys.py.",
+      "category": "developer",
+      "order": 3,
+      "depends_on": [],
+      "done": false,
+      "notes": ""
+    },
+    {
+      "title": "Fix — Add absolute session token expiry (expires_at column)",
+      "description": "CRITICAL (C4): Session tokens only expire based on last_message_at idle timeout — no absolute expiry. A stolen token is valid forever if used within 24h. Fix: add expires_at column to Session model, set it at creation (e.g., 7 days), check both absolute and idle expiry in verify_session_token. See code-review.md § C4. Files: app/models/session.py, app/auth/session_token.py, app/api/sessions.py.",
+      "category": "developer",
+      "order": 4,
+      "depends_on": [],
+      "done": false,
+      "notes": ""
+    },
+    {
+      "title": "Fix — Add per-session rate limiting on WebSocket message loop",
+      "description": "CRITICAL (C5): WebSocket endpoint has no rate limiting. REST API uses slowapi but WS messages are unlimited. Fix: track message timestamps per session_id in the WebSocket handler, disconnect if >20 messages/min. See code-review.md § C5. File: app/api/websocket.py.",
+      "category": "developer",
+      "order": 5,
+      "depends_on": [],
+      "done": false,
+      "notes": ""
+    },
+    {
+      "title": "Fix — Eliminate duplicate agreement recording (SessionManager vs ToolRouter)",
+      "description": "CRITICAL (C6): Both SessionManager._advance_state() and ToolRouter.route() create Agreement records for agree/decline intents, resulting in duplicates. Fix: remove Agreement creation from SessionManager._advance_state() and FallbackAgent.process_message(), let the MCP tool be the single source. See code-review.md § C6. Files: app/session_manager.py, app/agent/fallback.py.",
+      "category": "developer",
+      "order": 6,
+      "depends_on": [],
+      "done": false,
+      "notes": ""
+    }
+  ]
+}

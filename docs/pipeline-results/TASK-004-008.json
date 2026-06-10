@@ -1,0 +1,6 @@
+{
+  "task_id": "TASK-004-014",
+  "done": true,
+  "notes": "Implemented WebSocket handler for real-time chat at /api/v1/ws/{session_id}.\n\nFiles changed:\n- app/api/websocket.py: Complete WebSocket endpoint with ConnectionManager, session token auth, welcome message, message processing via FallbackAgent + state machine, audit trail on disconnect, graceful error handling\n- app/agent/fallback.py: Added process_message() method for end-to-end message processing, fixed intent detection for INFO_VERIFY_PENDING (confirm not agree), added state-specific intents (start, confirm, upload_id, resume)\n- app/api/router.py: WebSocket route already included from prior commit\n- tests/integration/test_websocket.py: 12 tests covering valid/invalid token, send/receive, invalid messages, disconnect, state persistence, message DB persistence, ConnectionManager unit tests\n- tests/unit/test_agent.py: Updated 2 intent tests to match corrected 'confirm' intent\n\nAll 232 tests pass (220 unit + 12 integration).\n\nBug fix: FallbackAgent.detect_intent_regex was returning 'agree' for INFO_VERIFY_PENDING but the transition table uses 'confirm'. This is now corrected, and the process_message() method properly handles all state transitions.",
+  "add_tasks": []
+}
