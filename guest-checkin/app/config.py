@@ -19,7 +19,7 @@ class Settings(BaseSettings):
 
     # ── Database ──────────────────────────────────────────────────
     DATABASE_URL: str = (
-        "mysql+pymysql://guestcheckin:guestcheckin@localhost:3306/guestcheckin"
+        "mysql+pymysql://guestcheckin:guest_checkin@localhost:3306/guestcheckin"
     )
 
     # ── LLM (Ollama) ─────────────────────────────────────────────

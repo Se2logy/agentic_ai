@@ -1,9 +1,16 @@
 """Alembic migration environment configuration."""
 
+import sys
+from pathlib import Path
 from logging.config import fileConfig
 
 from alembic import context
 from sqlalchemy import engine_from_config, pool
+
+# Ensure the project root is on sys.path so imports work anywhere
+project_root = Path(__file__).parent.parent
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
 
 # Import all models so Alembic can detect them
 from app.database import Base  # noqa: F401
