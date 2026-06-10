@@ -1,21 +1,15 @@
-"""OTP trigger and verification endpoints."""
+"""OTP trigger and verification endpoints — thin HTTP wrapper around otp_tools."""
 
-import hmac
 import logging
-import secrets
-import string
-from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.session_token import get_session
 from app.database import get_db
-from app.models.otp_verification import OTPVerification
+from app.mcp_tools import otp_tools
 from app.models.session import Session
 from app.schemas.otp import OTPVerifyRequest, OTPVerifyResponse
-from app.services.email_service import email_service
 
 logger = logging.getLogger(__name__)
 
@@ -33,49 +27,17 @@ async def trigger_otp(
     """Generate and send an OTP code to the guest's email.
 
     Uses the session token for authentication (Authorization: Bearer <token>).
+    Delegates to otp_tools.trigger_otp for secure OTP generation and delivery.
     """
-    # Get guest email from reservation
-    reservation = session.reservation
-    if reservation is None:
+    result = await otp_tools.trigger_otp(db, session.id)
+
+    if "error" in result:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Reservation not found for this session",
+            detail=result["error"],
         )
 
-    guest_email = reservation.guest_email
-    guest_name = reservation.guest_name
-
-    # Generate 6-digit OTP using secrets (cryptographically secure)
-    otp_code = "".join(
-        [str(secrets.randbelow(10)) for _ in range(6)]
-    )
-    expires_at = datetime.now(timezone.utc) + timedelta(minutes=10)
-
-    # Create OTP verification record
-    otp_record = OTPVerification(
-        session_id=session.id,
-        email=guest_email,
-        otp_code=otp_code,
-        verified=False,
-        attempts=0,
-        max_attempts=3,
-        expires_at=expires_at,
-    )
-    db.add(otp_record)
-    await db.flush()
-
-    # Send OTP email
-    sent = await email_service.send_otp_email(
-        to_email=guest_email,
-        otp_code=otp_code,
-        guest_name=guest_name,
-    )
-
-    return {
-        "message": "OTP sent" if sent else "OTP created but email delivery failed",
-        "email": guest_email,
-        "expires_at": expires_at.isoformat(),
-    }
+    return result
 
 
 @router.post(
@@ -90,55 +52,41 @@ async def verify_otp(
 ) -> OTPVerifyResponse:
     """Verify an OTP code submitted by the guest.
 
-    Uses the session token for authentication. Checks the most recent
-    unexpired OTP for the session.
+    Uses the session token for authentication. Delegates to
+    otp_tools.verify_otp for secure constant-time comparison.
     """
-    now = datetime.now(timezone.utc)
+    result = await otp_tools.verify_otp(db, session.id, body.otp_code)
 
-    # Find the latest unexpired, unverified OTP for this session
-    result = await db.execute(
-        select(OTPVerification)
-        .where(
-            OTPVerification.session_id == session.id,
-            OTPVerification.verified.is_(False),
-            OTPVerification.expires_at > now,
-        )
-        .order_by(OTPVerification.created_at.desc())
-    )
-    otp_record = result.scalar_one_or_none()
-
-    if otp_record is None:
+    # Map unrecoverable errors to HTTP 404 (no pending/expired OTP)
+    if "error" in result and "attempts_remaining" not in result:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="No active OTP found. Please trigger a new one.",
+            detail=result["error"],
         )
 
-    # Increment attempts
-    otp_record.attempts += 1
-
-    # Check max attempts
-    if otp_record.attempts > otp_record.max_attempts:
-        await db.flush()
-        return OTPVerifyResponse(
-            verified=False,
-            attempts_remaining=0,
-            message="Maximum attempts exceeded. Please trigger a new OTP.",
+    # Map expired OTP to 404 to match original API filtering
+    if "error" in result and "expired" in result["error"].lower():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=result["error"],
         )
 
-    # Verify code (constant-time comparison to prevent timing attacks)
-    if hmac.compare_digest(otp_record.otp_code, body.otp_code):
-        otp_record.verified = True
-        await db.flush()
-        return OTPVerifyResponse(
-            verified=True,
-            attempts_remaining=otp_record.max_attempts - otp_record.attempts,
-            message="OTP verified successfully.",
-        )
-
-    await db.flush()
-    remaining = otp_record.max_attempts - otp_record.attempts
     return OTPVerifyResponse(
-        verified=False,
-        attempts_remaining=max(0, remaining),
-        message=f"Invalid OTP code. {remaining} attempt(s) remaining.",
+        verified=result.get("verified", False),
+        attempts_remaining=result.get("attempts_remaining", 0),
+        message=_build_verify_message(result),
     )
+
+
+def _build_verify_message(result: dict) -> str:
+    """Build a user-friendly message from the verify_otp result dict."""
+    if result.get("verified"):
+        return "OTP verified successfully."
+
+    error = result.get("error", "")
+    remaining = result.get("attempts_remaining", 0)
+
+    if "Maximum attempts" in error:
+        return "Maximum attempts exceeded. Please trigger a new OTP."
+
+    return f"Invalid OTP code. {remaining} attempt(s) remaining."
