@@ -44,7 +44,8 @@ async def verify_session_token(
     token_max_age_hours = settings.SESSION_TOKEN_EXPIRY_HOURS
     now = datetime.now(timezone.utc)
 
-    # Absolute expiry: session created too long ago
+    # Absolute expiry: session created too long ago.
+    # Uses token_max_age_hours directly (NOT doubled) — 24h hard max from creation.
     created_at = session.created_at
     if created_at.tzinfo is None:
         created_at = created_at.replace(tzinfo=timezone.utc)
