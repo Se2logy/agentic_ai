@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["incidental"])
 
 # Damage waiver and security hold amounts
-DAMAGE_WAIVER_AMOUNT = 49.99
+DAMAGE_WAVER_AMOUNT = 49.00
 SECURITY_HOLD_AMOUNT = 250.00
 
 _TEMPLATE_DIR = Path(__file__).resolve().parent.parent / "templates"
@@ -119,7 +119,7 @@ async def select_incidental(
         amount=amount,
         payment_status="completed",
         payment_reference=payment_result.transaction_id,
-        message=f"Payment of ${amount} processed successfully. {payment_result.message}",
+        message=f"Payment of ${amount:.2f} processed successfully. {payment_result.message}",
     )
 
 
@@ -157,7 +157,7 @@ def _build_selection_page(token: str) -> str:
     <div class="body" id="selectionForm">
       <p>Please select your preferred incidental protection option:</p>
       <div class="option" id="damageWaiver" onclick="selectOption('damage_waiver')">
-        <h3>Damage Waiver</h3><div class="price">$49.99</div>
+        <h3>Damage Waiver</h3><div class="price">$49.00</div>
         <p>Covers accidental damages during your stay. Non-refundable.</p>
       </div>
       <div class="option" id="securityHold" onclick="selectOption('security_hold')">

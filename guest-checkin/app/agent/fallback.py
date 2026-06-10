@@ -201,7 +201,7 @@ class FallbackAgent:
             ),
             "question": (
                 "You have two options for incidental protection:\n"
-                "1. Damage Waiver ($49) — covers up to $500 in accidental "
+                "1. Damage Waiver ($49.00) — covers up to $500 in accidental "
                 "damages.\n"
                 "2. Security Hold ($250) — held on your card and refunded "
                 "within 7 days if no damage occurs.\n"
