@@ -21,7 +21,7 @@
   STEPS.forEach(function (s) { STEP_MAP[s.state] = s.idx; });
 
   /* ── URL detection regex ───────────────────────────────────────── */
-  var URL_RE = /https?:\/\/[^\s<>"']+/g;
+  var URL_RE = /(?:https?:\/\/[^\s<>"']+|\/api\/v1\/[^\s<>"']+)/g;
 
   /* ── Constructor ───────────────────────────────────────────────── */
   function GuestCheckInWidget(config) {
@@ -157,6 +157,9 @@
       self._hideConnBar();
       self._setConnText('Connected');
       self._setInputEnabled(true);
+      // Sync state on (re)connect — the state may have changed while
+      // the guest was on an external page (ID upload, payment, etc.)
+      self._syncState();
     };
 
     this.ws.onmessage = function (evt) {
@@ -286,6 +289,64 @@
     input.focus();
   };
 
+  /* ── State Sync (reconnect) ─────────────────────────────────────── */
+  proto._syncState = function () {
+    var self = this;
+    var url = this.apiUrl + '/sessions/' + this.sessionId + '/state';
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', url, true);
+    xhr.setRequestHeader('Authorization', 'Bearer ' + this.token);
+    xhr.onreadystatechange = function () {
+      if (xhr.readyState !== 4) return;
+      if (xhr.status === 401 || xhr.status === 403) {
+        // Token auth not supported on this endpoint, skip sync
+        return;
+      }
+      if (xhr.status !== 200) return;
+      try {
+        var data = JSON.parse(xhr.responseText);
+        var newState = data.current_state || 'INIT';
+        if (newState !== self.currentState) {
+          // State changed while we were disconnected
+          self.currentState = newState;
+          self.requiredAction = data.required_action || '';
+          self._updateProgress(newState);
+          self._updateStateBar(data.required_action || '');
+
+          // Tell the user what step they're on now
+          var stepMsg = self._stepMessage(newState, data.required_action);
+          self._addSystemMessage(stepMsg);
+
+          if (newState === 'COMPLETED') {
+            self._addSystemMessage('Check-in complete! You may close this window.');
+            // Fetch arrival instructions via WebSocket
+            self._fetchArrivalInstructions();
+          }
+        }
+      } catch (e) { /* ignore parse errors */ }
+    };
+    xhr.send();
+  };
+
+  proto._fetchArrivalInstructions = function () {
+    // Ask the agent for arrival instructions (triggers COMPLETED enrichment)
+    this.sendMessage('show me my arrival instructions');
+  };
+
+  proto._stepMessage = function (state, action) {
+    var msgs = {
+      'PRIVACY_POLICY_PENDING': 'Welcome back! You\'re on the Privacy Policy step.',
+      'HOUSE_RULES_PENDING': 'Welcome back! You\'re on the House Rules step.',
+      'RENTAL_AGREEMENT_PENDING': 'Welcome back! You\'re on the Rental Agreement step.',
+      'INFO_VERIFY_PENDING': 'Welcome back! Please verify your information.',
+      'ID_VERIFY_PENDING': 'Welcome back! Please upload your ID using the secure link.',
+      'INCIDENTAL_PROTECTION_PENDING': 'Welcome back! Please select your incidental protection option.',
+      'COMPLETED': 'Your check-in is complete!',
+      'REFUSED': 'Your check-in was declined.'
+    };
+    return msgs[state] || ('Welcome back! Current step: ' + (action || state));
+  };
+
   /* ── Typing Indicator ──────────────────────────────────────────── */
   proto._showTyping = function () {
     if (document.getElementById('gci-typing')) return;
@@ -345,6 +406,12 @@
 
     // Replace URLs with secure link cards if they look like upload/payment links
     html = html.replace(URL_RE, function (url) {
+      // Make relative URLs absolute
+      var fullUrl = url;
+      if (url.indexOf('/') === 0) {
+        fullUrl = location.origin + url;
+      }
+
       var isSecure = url.indexOf('/id-upload/') !== -1 ||
                      url.indexOf('/incidental/') !== -1 ||
                      url.indexOf('token=') !== -1;
@@ -352,7 +419,7 @@
         var desc = 'Open secure page';
         if (url.indexOf('/id-upload/') !== -1) desc = 'Upload your government-issued ID';
         if (url.indexOf('/incidental/') !== -1) desc = 'Select incidental protection & pay';
-        return '<a class="gci-secure-link" href="' + self._escapeHtml(url) +
+        return '<a class="gci-secure-link" href="' + self._escapeHtml(fullUrl) +
                '" target="_blank" rel="noopener noreferrer">' +
                '<div class="gci-secure-link-header">' +
                  '<span class="gci-secure-link-icon">&#128274;</span>' +
@@ -362,7 +429,7 @@
                '<div class="gci-secure-link-desc">' + desc + '</div>' +
              '</a>';
       }
-      return '<a href="' + self._escapeHtml(url) +
+      return '<a href="' + self._escapeHtml(fullUrl) +
              '" target="_blank" rel="noopener noreferrer">' +
              self._escapeHtml(url) + '</a>';
     });

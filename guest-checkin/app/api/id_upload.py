@@ -13,6 +13,8 @@ from app.database import get_db
 from app.models.guest import Guest
 from app.models.session import Session
 from app.services import link_service, storage_service
+from app.state_machine import StateMachine
+from app.state_machine.states import State
 
 logger = logging.getLogger(__name__)
 
@@ -65,8 +67,8 @@ async def upload_id_document(
 ) -> dict:
     """Accept an ID document upload from a secure link.
 
-    Validates the token, saves the file, and records the upload
-    against the guest's record.
+    Validates the token, saves the file, records the upload
+    against the guest's record, and advances the state machine.
     """
     # Verify token
     payload = link_service.verify_link(token)
@@ -124,6 +126,21 @@ async def upload_id_document(
         guest.id_document_path = file_path
         guest.id_verified = True
         await db.flush()
+
+    # Advance state machine: ID_VERIFY_PENDING → INCIDENTAL_PROTECTION_PENDING
+    try:
+        current_state = State(session.current_state)
+        if current_state == State.ID_VERIFY_PENDING:
+            sm = StateMachine(db_session=db, session_id=session.id)
+            await sm.advance("upload_id", guest_response="ID uploaded via secure link")
+            await db.flush()
+            logger.info(
+                "State advanced after ID upload: session=%s", session_id
+            )
+    except Exception as exc:
+        logger.warning(
+            "Could not advance state after ID upload: %s", exc
+        )
 
     logger.info(
         "ID document uploaded for session %s: %s", session_id, file_path

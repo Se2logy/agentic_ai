@@ -113,6 +113,24 @@ async def select_incidental(
             message=f"Payment failed: {payment_result.message}",
         )
 
+    # Advance state machine: INCIDENTAL_PROTECTION_PENDING → COMPLETED
+    try:
+        from app.state_machine import StateMachine
+        from app.state_machine.states import State
+
+        current_state = State(session.current_state)
+        if current_state == State.INCIDENTAL_PROTECTION_PENDING:
+            sm = StateMachine(db_session=db, session_id=session.id)
+            await sm.advance("select_option", guest_response=f"Incidental selected: {body.selection_type}")
+            await db.flush()
+            logger.info(
+                "State advanced after incidental payment: session=%s", session_id
+            )
+    except Exception as exc:
+        logger.warning(
+            "Could not advance state after incidental payment: %s", exc
+        )
+
     logger.info("Incidental selection for session %s: %s", session_id, body.selection_type)
 
     return IncidentalSelectResponse(
@@ -190,7 +208,7 @@ def _build_selection_page(token: str) -> str:
       .then(result => {{
         document.getElementById('selectionForm').style.display = 'none';
         const rd = document.getElementById('result'); rd.style.display = 'block';
-        if (result.ok) {{ rd.className = 'result success'; rd.innerHTML = '<h2>Payment Successful!</h2><p>' + result.data.message + '</p>'; }}
+        if (result.ok) {{ rd.className = 'result success'; rd.innerHTML = '<h2>✓ Payment Successful!</h2><p>' + result.data.message + '</p><p style="margin-top:12px;font-size:14px;color:#5f6368;">Returning to check-in chat...</p>'; setTimeout(function() {{ if (window.opener) {{ window.close(); }} else {{ window.history.back(); }} }}, 2000); }}
         else {{ rd.className = 'result error'; rd.innerHTML = '<h2>Payment Failed</h2><p>' + (result.data.detail||result.data.message||'Error') + '</p>'; }}
       }})
       .catch(err => {{

@@ -488,7 +488,10 @@ class SessionManager:
                         session, guest_message, db
                     )
                     if answer:
-                        agent_content = answer
+                        agent_content = (
+                            f"{answer}\n\n"
+                            f"To continue your check-in: {required}"
+                        )
                     else:
                         agent_content = (
                             f"I don't have specific information about "
@@ -496,12 +499,58 @@ class SessionManager:
                             f"check-in. {required}"
                         )
                 elif intent == "greeting":
-                    agent_content = (
-                        f"Hello! Welcome to your check-in process. "
-                        f"{required}"
-                    )
+                    if current_state == State.COMPLETED:
+                        instructions = await self.get_arrival_instructions(
+                            session.id, db
+                        )
+                        if instructions:
+                            agent_content = (
+                                "Welcome back! Your check-in is complete. "
+                                "Here are your arrival instructions:\n\n"
+                                f"{instructions}"
+                            )
+                        else:
+                            agent_content = (
+                                "Welcome back! Your check-in is complete. "
+                                "Is there anything else I can help you with?"
+                            )
+                    else:
+                        agent_content = (
+                            f"Hello! Welcome to your check-in process. "
+                            f"{required}"
+                        )
                 else:
-                    agent_content = required
+                    # No valid transition — check for COMPLETED state
+                    if current_state == State.COMPLETED:
+                        # Terminal state — guest may ask for instructions or other info
+                        if intent in ("question", "request_help"):
+                            answer = await answer_question(
+                                session, guest_message, db
+                            )
+                            if answer:
+                                agent_content = answer
+                            else:
+                                agent_content = (
+                                    "Your check-in is complete! "
+                                    "Is there anything else I can help you with?"
+                                )
+                        else:
+                            # Re-deliver arrival instructions
+                            instructions = await self.get_arrival_instructions(
+                                session.id, db
+                            )
+                            if instructions:
+                                agent_content = (
+                                    "Your check-in is complete! Here are your arrival instructions:\n\n"
+                                    f"{instructions}"
+                                )
+                            else:
+                                agent_content = (
+                                    "Your check-in is complete! "
+                                    "Is there anything else I can help you with?"
+                                )
+                    else:
+                        agent_content = required
 
         except InvalidTransitionError as exc:
             agent_content = (

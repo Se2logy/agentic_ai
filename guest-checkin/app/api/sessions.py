@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth.api_key import get_api_key
+from app.auth.api_key import get_api_key, get_api_key_or_session
 from app.auth.session_token import generate_session_token
 from app.database import get_db
 from app.models.api_key import APIKey
@@ -270,9 +270,13 @@ async def get_messages(
 async def get_state(
     session_id: str,
     db: AsyncSession = Depends(get_db),
-    _api_key: APIKey = Depends(get_api_key),
+    _auth: APIKey | Session = Depends(get_api_key_or_session),
 ) -> SessionStateResponse:
-    """Return the current state and required action for a session."""
+    """Return the current state and required action for a session.
+
+    Supports both API key auth (X-API-Key header) and session token auth
+    (Authorization: Bearer <token> or ?token=<token> query param).
+    """
     sm = StateMachine(db_session=db, session_id=session_id)
     try:
         current_state, required_action = await sm.get_current_state()

@@ -95,12 +95,15 @@ _INTENT_STATE_TOOL_MAP: dict[tuple[str, State], dict[str, Any]] = {
 
 # States where "question" intent should call get_faq_answer
 _QUESTION_STATES = {
+    State.INIT,
     State.PRIVACY_POLICY_PENDING,
     State.HOUSE_RULES_PENDING,
     State.RENTAL_AGREEMENT_PENDING,
     State.INFO_VERIFY_PENDING,
     State.ID_VERIFY_PENDING,
     State.INCIDENTAL_PROTECTION_PENDING,
+    State.COMPLETED,
+    State.REFUSED,
 }
 
 # States where "request_help" intent does not call a tool
