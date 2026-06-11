@@ -1,6 +1,7 @@
 """Unit tests for Pydantic schemas — validation and serialization."""
 
 import pytest
+from decimal import Decimal
 from pydantic import ValidationError
 
 from app.schemas.session import CreateSessionRequest, SessionResponse, SessionStateResponse
@@ -80,18 +81,23 @@ class TestIncidentalSelectRequest:
         req = IncidentalSelectRequest(selection_type="security_hold")
         assert req.selection_type == "security_hold"
 
+    def test_invalid_selection_type_raises(self):
+        with pytest.raises(ValidationError):
+            IncidentalSelectRequest(selection_type="bad_option")
+
 
 class TestIncidentalSelectResponse:
     def test_completed_response(self):
         resp = IncidentalSelectResponse(
             selection_type="damage_waiver",
-            amount=49.99,
+            amount=Decimal("49.00"),
             payment_status="completed",
             payment_reference="mock-abc123",
             message="Payment processed",
         )
         assert resp.payment_status == "completed"
-        assert resp.amount == 49.99
+        assert resp.amount == Decimal("49.00")
+        assert isinstance(resp.amount, Decimal)
 
 
 class TestStateInfo:

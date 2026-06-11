@@ -1,6 +1,7 @@
 """MCP tools: generate incidental link and record incidental selection."""
 
 import logging
+from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import select
@@ -16,7 +17,7 @@ logger = logging.getLogger(__name__)
 INCIDENTAL_OPTIONS = [
     {
         "type": "damage_waiver",
-        "amount": 49.00,
+        "amount": Decimal("49.00"),
         "description": (
             "Damage Waiver — covers up to $500 in accidental "
             "damages during your stay."
@@ -24,7 +25,7 @@ INCIDENTAL_OPTIONS = [
     },
     {
         "type": "security_hold",
-        "amount": 250.00,
+        "amount": Decimal("250.00"),
         "description": (
             "Security Hold — $250 hold on your card, refunded "
             "within 7 days after check-out if no damage."
@@ -126,7 +127,7 @@ async def record_incidental_selection(
     db_session: AsyncSession,
     session_id: str,
     selection_type: str,
-    amount: float | None = None,
+    amount: Decimal | None = None,
 ) -> dict[str, Any]:
     """Record guest's incidental protection choice and process payment.
 

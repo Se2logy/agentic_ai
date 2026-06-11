@@ -2,6 +2,7 @@
 
 import uuid
 from datetime import date, datetime, timedelta, timezone
+from decimal import Decimal
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -354,7 +355,7 @@ class TestRecordIncidentalSelection:
         r = await record_incidental_selection(sd["db"], sd["sid"], "damage_waiver")
         assert r["selected"] is True
         assert r["selection_type"] == "damage_waiver"
-        assert r["amount"] == 49.0
+        assert r["amount"] == Decimal("49.00")
         assert r["payment"]["success"] is True
 
     @pytest.mark.asyncio
@@ -362,7 +363,7 @@ class TestRecordIncidentalSelection:
         from app.mcp_tools.incidental_tools import record_incidental_selection
         r = await record_incidental_selection(sd["db"], sd["sid"], "security_hold")
         assert r["selected"] is True
-        assert r["amount"] == 250.0
+        assert r["amount"] == Decimal("250.00")
 
     @pytest.mark.asyncio
     async def test_invalid_type(self, sd):
@@ -373,8 +374,8 @@ class TestRecordIncidentalSelection:
     @pytest.mark.asyncio
     async def test_custom_amount(self, sd):
         from app.mcp_tools.incidental_tools import record_incidental_selection
-        r = await record_incidental_selection(sd["db"], sd["sid"], "damage_waiver", 99.0)
-        assert r["amount"] == 99.0
+        r = await record_incidental_selection(sd["db"], sd["sid"], "damage_waiver", Decimal("99.00"))
+        assert r["amount"] == Decimal("99.00")
 
 
 # ── arrival_tools tests ─────────────────────────────────────────

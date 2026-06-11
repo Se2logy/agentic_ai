@@ -20,7 +20,7 @@ class IncidentalSelection(Base):
     selection_type = Column(
         String(50), nullable=False
     )  # damage_waiver / security_hold
-    amount = Column(Numeric(10, 2), nullable=False)  # DECIMAL(10,2) — avoids floating-point precision loss
+    amount = Column(Numeric(10, 2), nullable=False, default=0.0)  # DECIMAL(10,2) — avoids floating-point precision loss
     payment_status = Column(
         String(20), default="pending"
     )  # pending / completed / failed

@@ -1,6 +1,7 @@
 """Incidental protection selection endpoints — serve selection page and process payment."""
 
 import logging
+from decimal import Decimal
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -18,9 +19,9 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["incidental"])
 
-# Damage waiver and security hold amounts
-DAMAGE_WAVER_AMOUNT = 49.00
-SECURITY_HOLD_AMOUNT = 250.00
+# Damage waiver and security hold amounts (Decimal avoids floating-point precision loss)
+DAMAGE_WAVER_AMOUNT = Decimal("49.00")
+SECURITY_HOLD_AMOUNT = Decimal("250.00")
 
 _TEMPLATE_DIR = Path(__file__).resolve().parent.parent / "templates"
 
