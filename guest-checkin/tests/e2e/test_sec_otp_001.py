@@ -351,7 +351,9 @@ class TestOtpTimingVariance:
                 OTPVerification.verified == False,  # noqa: E712
             ).order_by(OTPVerification.created_at.desc())
             res = await seeded["db"].execute(stmt)
-            otp_record = res.scalar_one()
+            otp_record = res.scalars().first()
+            if otp_record is None:
+                pytest.fail("No unverified OTP record found — test fixture issue")
             generated_code = otp_record.otp_code
 
             # Time correct OTP verification
@@ -372,7 +374,9 @@ class TestOtpTimingVariance:
                 OTPVerification.verified == False,  # noqa: E712
             ).order_by(OTPVerification.created_at.desc())
             res = await seeded["db"].execute(stmt)
-            otp_record = res.scalar_one()
+            otp_record = res.scalars().first()
+            if otp_record is None:
+                pytest.fail("No unverified OTP record found — test fixture issue")
 
             # Time incorrect OTP verification
             start = time.perf_counter()
@@ -505,7 +509,7 @@ class TestOtpRecoveryFlow:
             OTPVerification.verified == False,  # noqa: E712
         ).order_by(OTPVerification.created_at.desc())
         res = await seeded["db"].execute(stmt)
-        new_otp = res.scalar_one()
+        new_otp = res.scalars().first()
 
         with patch(
             "app.mcp_tools.otp_tools.hmac.compare_digest",

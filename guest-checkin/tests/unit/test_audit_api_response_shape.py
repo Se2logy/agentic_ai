@@ -61,14 +61,22 @@ def mock_session_row():
 def mock_audit_rows():
     """Two mock AuditTrail rows (newest first)."""
     row1 = MagicMock(spec=AuditTrail)
+    row1.id = "audit-001"
+    row1.session_id = "session-001"
+    row1.action = "advance"
     row1.from_state = "INIT"
     row1.to_state = "PRIVACY_POLICY_PENDING"
+    row1.details = None
     row1.created_at = datetime(2024, 6, 15, 10, 0, 0, tzinfo=timezone.utc)
     row1.actor = "guest"
 
     row2 = MagicMock(spec=AuditTrail)
+    row2.id = "audit-002"
+    row2.session_id = "session-001"
+    row2.action = "advance"
     row2.from_state = "PRIVACY_POLICY_PENDING"
     row2.to_state = "HOUSE_RULES_PENDING"
+    row2.details = {"auto": True}
     row2.created_at = datetime(2024, 6, 15, 10, 5, 0, tzinfo=timezone.utc)
     row2.actor = "system"
 
