@@ -7,9 +7,12 @@ from app.schemas.message import AgentResponse, MessageResponse, SendMessageReque
 from app.schemas.otp import OTPVerifyRequest, OTPVerifyResponse
 from app.schemas.reservation import ReservationResponse
 from app.schemas.session import CreateSessionRequest, SessionResponse, SessionStateResponse
+from app.schemas.audit import AuditTrailEntry, AuditTrailResponse
 from app.schemas.state import StateInfo
 
 __all__ = [
+    "AuditTrailEntry",
+    "AuditTrailResponse",
     "CreateSessionRequest",
     "SessionResponse",
     "SessionStateResponse",

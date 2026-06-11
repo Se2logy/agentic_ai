@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter
 
+from app.api.audit import router as audit_router
 from app.api.id_upload import router as id_upload_router
 from app.api.incidental import router as incidental_router
 from app.api.otp import router as otp_router
@@ -16,4 +17,5 @@ api_router.include_router(reservations_router)
 api_router.include_router(otp_router)
 api_router.include_router(id_upload_router)
 api_router.include_router(incidental_router)
+api_router.include_router(audit_router)
 api_router.include_router(websocket_router)
