@@ -20,7 +20,9 @@ from app.agent.llm_client import OllamaClient
 from app.agent.tool_router import ToolRouter
 from app.config import settings
 from app.mcp_tools.registry import tool_registry
+from app.models.guest import Guest
 from app.models.message import Message
+from app.models.reservation import Reservation
 from app.models.session import Session
 from app.state_machine import InvalidTransitionError, StateMachine
 from app.state_machine.states import STATE_INFO, State
@@ -32,37 +34,70 @@ logger = logging.getLogger(__name__)
 # ── Module-level helpers ────────────────────────────────────────────
 
 
-def _get_agreement_text(session: Session, agreement_type: str) -> str:
-    """Extract agreement text from the session's reservation."""
-    # Reservation may not be eagerly loaded in async context;
-    # return a placeholder.  The template in the on-enter content
-    # already includes enough context for the guest.
-    return f"[{agreement_type.replace('_', ' ').title()} text]"
+async def _fetch_reservation(
+    session: Session, db: AsyncSession
+) -> Reservation | None:
+    """Fetch the reservation for a session's guest."""
+    result = await db.execute(
+        select(Reservation).where(Reservation.id == session.reservation_id)
+    )
+    return result.scalar_one_or_none()
+
+
+async def _fetch_guest(
+    session: Session, db: AsyncSession
+) -> Guest | None:
+    """Fetch the guest for a session."""
+    result = await db.execute(
+        select(Guest).where(Guest.id == session.guest_id)
+    )
+    return result.scalar_one_or_none()
+
+
+async def _get_agreement_text(
+    session: Session, agreement_type: str, db: AsyncSession
+) -> str:
+    """Fetch the actual agreement text from the reservation."""
+    reservation = await _fetch_reservation(session, db)
+    if reservation is None:
+        return f"[{agreement_type.replace('_', ' ').title()} text — reservation data unavailable]"
+
+    mapping = {
+        "privacy_policy": reservation.privacy_policy_text,
+        "house_rules": reservation.house_rules_text,
+        "rental_agreement": reservation.rental_agreement_text,
+    }
+    text = mapping.get(agreement_type)
+    if text:
+        return text
+    return f"[{agreement_type.replace('_', ' ').title()} text not found]"
 
 
 # ── State-aware response templates ─────────────────────────────────
 
 _STATE_RESPONSES: dict[State, str] = {
     State.PRIVACY_POLICY_PENDING: (
-        "Please review our Privacy Policy and Data Usage agreement. "
-        "Do you agree?"
+        "Please review our Privacy Policy and Data Usage agreement below. "
+        "Reply 'agree' to accept or 'decline' to refuse."
     ),
     State.HOUSE_RULES_PENDING: (
-        "Here are the House Rules for this property. "
-        "Do you accept them?"
+        "Please review the House Rules below. "
+        "Reply 'agree' to accept or 'decline' to refuse."
     ),
     State.RENTAL_AGREEMENT_PENDING: (
-        "Please review and accept the Rental Agreement."
+        "Please review the Rental Agreement below. "
+        "Reply 'agree' to accept or 'decline' to refuse."
     ),
     State.INFO_VERIFY_PENDING: (
-        "Please verify your information. "
-        "We'll send an OTP to your email."
+        "Please verify your information below. "
+        "If everything is correct, reply 'confirm'. "
+        "If anything needs updating, tell me what to change."
     ),
     State.ID_VERIFY_PENDING: (
-        "Please upload your government-issued ID using this secure link."
+        "Please upload your government-issued ID using the secure link provided."
     ),
     State.INCIDENTAL_PROTECTION_PENDING: (
-        "Please select your incidental protection option."
+        "Please select your incidental protection option using the link provided."
     ),
     State.COMPLETED: (
         "Your check-in is complete! Here are your arrival instructions."
@@ -349,9 +384,14 @@ class SessionManager:
                 new_state = await sm.decline(
                     guest_response=guest_message
                 )
-                agent_content = _STATE_RESPONSES.get(
+                agent_content = await self._enrich_state_content(
+                    _STATE_RESPONSES.get(
+                        new_state,
+                        "Your check-in has been declined.",
+                    ),
                     new_state,
-                    "Your check-in has been declined.",
+                    session,
+                    db,
                 )
                 current_state = new_state
 
@@ -365,9 +405,14 @@ class SessionManager:
                 current_state = new_state
 
                 # Generate on-enter content for the new state
-                agent_content = _STATE_RESPONSES.get(
+                agent_content = await self._enrich_state_content(
+                    _STATE_RESPONSES.get(
+                        current_state,
+                        get_required_action(current_state),
+                    ),
                     current_state,
-                    get_required_action(current_state),
+                    session,
+                    db,
                 )
             else:
                 # Intent doesn't match valid transition
@@ -401,6 +446,60 @@ class SessionManager:
             logger.warning("Invalid transition attempt: %s", exc)
 
         return agent_content, current_state
+
+    async def _enrich_state_content(
+        self,
+        template: str,
+        state: State,
+        session: Session,
+        db: AsyncSession,
+    ) -> str:
+        """Enrich the state template with actual data from the reservation.
+
+        For agreement states (PRIVACY_POLICY, HOUSE_RULES, RENTAL_AGREEMENT):
+          append the full agreement text from the reservation.
+
+        For INFO_VERIFY_PENDING:
+          append the guest's name, email, phone, and number of guests.
+
+        For other states: return the template as-is.
+        """
+        # Agreement states — append the full text
+        agreement_type = agreement_type_for_state(state)
+        if agreement_type:
+            text = await _get_agreement_text(session, agreement_type, db)
+            return f"{template}\n\n---\n\n{text}"
+
+        # Info verify — append guest details
+        if state == State.INFO_VERIFY_PENDING:
+            reservation = await _fetch_reservation(session, db)
+            guest = await _fetch_guest(session, db)
+            if reservation and guest:
+                info_lines = [
+                    f"**Name:** {guest.first_name} {guest.last_name}",
+                    f"**Email:** {guest.email or reservation.guest_email}",
+                    f"**Phone:** {guest.phone or reservation.guest_phone or 'Not provided'}",
+                    f"**Number of guests:** {reservation.num_guests}",
+                    f"**Property:** {reservation.property_name}",
+                    f"**Check-in:** {reservation.check_in_date}",
+                    f"**Check-out:** {reservation.check_out_date}",
+                ]
+                info_block = "\n".join(info_lines)
+                return f"{template}\n\n{info_block}"
+            elif reservation:
+                info_lines = [
+                    f"**Name:** {reservation.guest_name}",
+                    f"**Email:** {reservation.guest_email}",
+                    f"**Phone:** {reservation.guest_phone or 'Not provided'}",
+                    f"**Number of guests:** {reservation.num_guests}",
+                    f"**Property:** {reservation.property_name}",
+                    f"**Check-in:** {reservation.check_in_date}",
+                    f"**Check-out:** {reservation.check_out_date}",
+                ]
+                info_block = "\n".join(info_lines)
+                return f"{template}\n\n{info_block}"
+
+        return template
 
     def _enrich_response(
         self,

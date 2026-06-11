@@ -90,6 +90,9 @@ async def create_session(
     db.add(session)
     await db.flush()
 
+    # Refresh to load server-generated defaults (created_at, updated_at)
+    await db.refresh(session)
+
     return SessionResponse.model_validate(session)
 
 
@@ -113,6 +116,8 @@ async def get_session(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Session not found: {session_id}",
         )
+    # Refresh to ensure lazy-loaded attributes are available
+    await db.refresh(session)
     return SessionResponse.model_validate(session)
 
 
@@ -207,6 +212,9 @@ async def send_message(
             detail="Failed to retrieve processed message.",
         )
 
+    # Refresh to ensure lazy-loaded attributes are available
+    await db.refresh(agent_msg)
+
     return AgentResponse(
         message=MessageResponse.model_validate(agent_msg),
         current_state=session.current_state,
@@ -242,6 +250,9 @@ async def get_messages(
         .order_by(Message.created_at.asc())
     )
     messages = result.scalars().all()
+    # Refresh each message to ensure lazy-loaded attributes are available
+    for m in messages:
+        await db.refresh(m)
     return [MessageResponse.model_validate(m) for m in messages]
 
 
