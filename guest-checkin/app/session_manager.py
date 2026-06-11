@@ -25,41 +25,11 @@ from app.models.session import Session
 from app.state_machine import InvalidTransitionError, StateMachine
 from app.state_machine.states import STATE_INFO, State
 from app.state_machine.transitions import can_transition, get_required_action
+from app.utils import agreement_type_for_state, answer_question
 
 logger = logging.getLogger(__name__)
 
 # ── Module-level helpers ────────────────────────────────────────────
-
-
-def _agreement_type_for_state(state: State) -> str | None:
-    """Return the agreement type string for a state that has one."""
-    mapping = {
-        State.PRIVACY_POLICY_PENDING: "privacy_policy",
-        State.HOUSE_RULES_PENDING: "house_rules",
-        State.RENTAL_AGREEMENT_PENDING: "rental_agreement",
-    }
-    return mapping.get(state)
-
-
-async def _answer_question(
-    session: Session,
-    question: str,
-    db: AsyncSession,
-) -> str | None:
-    """Try to answer a guest question from the knowledge base."""
-    from app.models.knowledge_base import KnowledgeBase
-
-    result = await db.execute(select(KnowledgeBase).limit(10))
-    entries = result.scalars().all()
-    if not entries:
-        return None
-
-    q_lower = question.lower()
-    for entry in entries:
-        if any(word in q_lower for word in entry.question.lower().split()):
-            return entry.answer
-
-    return None
 
 
 def _get_agreement_text(session: Session, agreement_type: str) -> str:
@@ -373,7 +343,7 @@ class SessionManager:
             ):
                 # Agreement refusal recording handled by ToolRouter (record_agreement tool)
                 tools_called_decline: list[str] | None = None
-                if _agreement_type_for_state(current_state):
+                if agreement_type_for_state(current_state):
                     tools_called_decline = ["record_agreement"]
 
                 new_state = await sm.decline(
@@ -404,7 +374,7 @@ class SessionManager:
                 required = get_required_action(current_state)
 
                 if intent in ("question", "request_help"):
-                    answer = await _answer_question(
+                    answer = await answer_question(
                         session, guest_message, db
                     )
                     if answer:

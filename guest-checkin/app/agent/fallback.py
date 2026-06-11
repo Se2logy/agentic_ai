@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.session import Session
 from app.state_machine.states import STATE_INFO, State
+from app.utils import agreement_type_for_state, answer_question
 
 
 class FallbackAgent:
@@ -297,7 +298,7 @@ class FallbackAgent:
 
         try:
             if intent == "decline" and can_transition(current_state, "decline"):
-                agreement_type = _agreement_type_for_state(current_state)
+                agreement_type = agreement_type_for_state(current_state)
                 if agreement_type:
                     from app.models.agreement import Agreement
 
@@ -316,7 +317,7 @@ class FallbackAgent:
                 current_state = new_state
 
             elif intent and can_transition(current_state, intent):
-                agreement_type = _agreement_type_for_state(current_state)
+                agreement_type = agreement_type_for_state(current_state)
                 if agreement_type and intent == "agree":
                     from app.models.agreement import Agreement
 
@@ -339,7 +340,7 @@ class FallbackAgent:
                 required = get_required_action(current_state)
 
                 if intent in ("question", "request_help"):
-                    answer = await _answer_question(session, guest_content, db)
+                    answer = await answer_question(session, guest_content, db)
                     if answer:
                         agent_content = answer
                     else:
@@ -374,38 +375,3 @@ class FallbackAgent:
             return f"{template}\n\nNote: There was an issue — {tool_result['error']}."
         return template
 
-
-# ── Module-level helpers ────────────────────────────────────────────
-
-
-def _agreement_type_for_state(state: State) -> str | None:
-    """Return the agreement type string for a state that has one."""
-    mapping = {
-        State.PRIVACY_POLICY_PENDING: "privacy_policy",
-        State.HOUSE_RULES_PENDING: "house_rules",
-        State.RENTAL_AGREEMENT_PENDING: "rental_agreement",
-    }
-    return mapping.get(state)
-
-
-async def _answer_question(
-    session: Session,
-    question: str,
-    db: AsyncSession,
-) -> str | None:
-    """Try to answer a guest question from the knowledge base."""
-    from sqlalchemy import select
-
-    from app.models.knowledge_base import KnowledgeBase
-
-    result = await db.execute(select(KnowledgeBase).limit(10))
-    entries = result.scalars().all()
-    if not entries:
-        return None
-
-    q_lower = question.lower()
-    for entry in entries:
-        if any(word in q_lower for word in entry.question.lower().split()):
-            return entry.answer
-
-    return None
