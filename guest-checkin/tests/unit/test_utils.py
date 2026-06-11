@@ -163,6 +163,56 @@ class TestAnswerQuestion:
 # ── Import provenance ─────────────────────────────────────────────
 
 
+# ── Public exports ─────────────────────────────────────────────────
+
+
+class TestPublicExports:
+    """Verify agreement_type_for_state and answer_question are public (no underscore prefix)."""
+
+    def test_agreement_type_for_state_is_public_name(self):
+        """agreement_type_for_state has no leading underscore."""
+        import app.utils as mod
+        assert "agreement_type_for_state" in dir(mod), (
+            "agreement_type_for_state not found in app.utils module"
+        )
+        assert not agreement_type_for_state.__name__.startswith("_"), (
+            f"agreement_type_for_state is private: __name__={agreement_type_for_state.__name__!r}"
+        )
+
+    def test_answer_question_is_public_name(self):
+        """answer_question has no leading underscore."""
+        import app.utils as mod
+        assert "answer_question" in dir(mod), (
+            "answer_question not found in app.utils module"
+        )
+        assert not answer_question.__name__.startswith("_"), (
+            f"answer_question is private: __name__={answer_question.__name__!r}"
+        )
+
+    def test_agreement_type_for_state_is_callable(self):
+        """agreement_type_for_state is callable."""
+        assert callable(agreement_type_for_state), (
+            "agreement_type_for_state is not callable"
+        )
+
+    def test_answer_question_is_callable(self):
+        """answer_question is callable."""
+        assert callable(answer_question), (
+            "answer_question is not callable"
+        )
+
+    def test_no_underscore_aliases(self):
+        """Module should NOT have underscore-prefixed versions of these helpers."""
+        import app.utils as mod
+        for name in ("_agreement_type_for_state", "_answer_question"):
+            assert not hasattr(mod, name), (
+                f"app.utils still has private {name} — should only be public"
+            )
+
+
+# ── Import provenance ─────────────────────────────────────────────
+
+
 class TestImportProvenance:
     """Verify session_manager and fallback import from app.utils, not local duplicates."""
 

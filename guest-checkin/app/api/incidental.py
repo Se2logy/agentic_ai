@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["incidental"])
 
 # Damage waiver and security hold amounts (Decimal avoids floating-point precision loss)
-DAMAGE_WAVER_AMOUNT = Decimal("49.00")
+DAMAGE_WAIVER_AMOUNT = Decimal("49.00")
 SECURITY_HOLD_AMOUNT = Decimal("250.00")
 
 _TEMPLATE_DIR = Path(__file__).resolve().parent.parent / "templates"

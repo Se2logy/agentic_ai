@@ -85,6 +85,11 @@ class TestIncidentalSelectRequest:
         with pytest.raises(ValidationError):
             IncidentalSelectRequest(selection_type="bad_option")
 
+    def test_typo_selection_type_raises(self):
+        """DATA-004: Literal validation rejects 'damage_waver' (typo of 'damage_waiver')."""
+        with pytest.raises(ValidationError):
+            IncidentalSelectRequest(selection_type="damage_waver")
+
 
 class TestIncidentalSelectResponse:
     def test_completed_response(self):
