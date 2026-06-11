@@ -47,12 +47,19 @@ _INTENT_STATE_TOOL_MAP: dict[tuple[str, State], dict[str, Any]] = {
         "kwargs": {"agreement_type": "rental_agreement", "accepted": False},
         "entity_map": {},
     },
-    # Info verify: agree → trigger_otp (or verify_otp if otp_code present)
-    ("agree", State.INFO_VERIFY_PENDING): {
+    # Info verify: confirm → trigger_otp (guest confirmed info is correct)
+    # Note: "confirm" is now a self-transition — stays in INFO_VERIFY_PENDING
+    # so the guest must then enter the OTP code to advance via "verify_otp"
+    ("confirm", State.INFO_VERIFY_PENDING): {
         "tool": "trigger_otp",
         "kwargs": {},
-        "entity_map": {"otp_code": "otp_code"},  # if otp_code exists, switch tool
-        "alt_tool": "verify_otp",
+        "entity_map": {},
+    },
+    # Info verify: verify_otp → verify OTP code, then advance to ID_VERIFY_PENDING
+    ("verify_otp", State.INFO_VERIFY_PENDING): {
+        "tool": "verify_otp",
+        "kwargs": {},
+        "entity_map": {"otp_code": "otp_code"},
     },
     # Info verify: provide_info → update_guest_info
     ("provide_info", State.INFO_VERIFY_PENDING): {
@@ -63,12 +70,6 @@ _INTENT_STATE_TOOL_MAP: dict[tuple[str, State], dict[str, Any]] = {
             "last_name": "last_name",
             "phone": "phone",
         },
-    },
-    # Info verify: confirm → trigger_otp (guest confirmed info is correct)
-    ("confirm", State.INFO_VERIFY_PENDING): {
-        "tool": "trigger_otp",
-        "kwargs": {},
-        "entity_map": {},
     },
     # ID verify: upload_id → record_id_upload (guest confirmed upload)
     # file_path is a placeholder — actual upload happens via /api/v1/id-upload endpoint
@@ -210,11 +211,11 @@ class ToolRouter:
         kwargs = dict(mapping["kwargs"])  # copy static kwargs
         entity_map = mapping.get("entity_map", {})
 
-        # Special case: INFO_VERIFY_PENDING + agree → check for otp_code
-        if key == ("agree", State.INFO_VERIFY_PENDING):
-            if "otp_code" in entities and entities["otp_code"]:
-                tool_name = mapping["alt_tool"]
-                entity_map = {"otp_code": "otp_code"}
+        # Special case: verify_otp at INFO_VERIFY_PENDING — only advance if OTP verified
+        if key == ("verify_otp", State.INFO_VERIFY_PENDING):
+            # The verify_otp tool will return {"verified": True/False}
+            # We need the session_manager to check this before advancing
+            pass
 
         # Map entities to tool kwargs
         for entity_key, kwarg_name in entity_map.items():

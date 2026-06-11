@@ -79,7 +79,7 @@ async def generate_incidental_link(
         return {"error": f"Session not found: {session_id}"}
 
     token = link_service.generate_incidental_link(session_id)
-    selection_url = f"/api/v1/incidental/select?token={token}"
+    selection_url = f"/api/v1/incidental/{token}"
 
     logger.info("Incidental link generated: session=%s", session_id)
 

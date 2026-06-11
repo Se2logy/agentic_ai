@@ -89,6 +89,13 @@ class FallbackAgent:
                 message, re.IGNORECASE,
             ):
                 return "confirm"
+            # Detect 6-digit OTP code (e.g., "123456", "my code is 456789")
+            otp_match = re.search(
+                r"\b(\d{6})\b",
+                message,
+            )
+            if otp_match:
+                return "verify_otp"
 
         if state == State.ID_VERIFY_PENDING:
             if re.search(
@@ -170,13 +177,17 @@ class FallbackAgent:
             "other": "Welcome! Please say 'start' to begin the check-in process.",
         },
         State.INFO_VERIFY_PENDING: {
-            "agree": (
-                "Great, your information has been confirmed! Let's move on to "
-                "ID verification. I'll generate a secure upload link for you."
+            "confirm": (
+                "Your information has been confirmed! I've sent a 6-digit "
+                "verification code to your email. Please enter the code to proceed."
             ),
             "provide_info": (
                 "Thank you for providing your updated information. I've noted "
                 "the changes. Please confirm when the details are correct."
+            ),
+            "verify_otp": (
+                "OTP verified successfully! Let's move on to ID verification. "
+                "I'll generate a secure upload link for you."
             ),
             "question": (
                 "I'd be happy to help with your question. Could you please "

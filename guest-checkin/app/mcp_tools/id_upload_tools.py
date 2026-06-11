@@ -57,7 +57,7 @@ async def generate_id_upload_link(
         return {"error": f"Session not found: {session_id}"}
 
     token = link_service.generate_upload_link(session_id)
-    upload_url = f"/api/v1/id-upload?token={token}"
+    upload_url = f"/api/v1/id-upload/{token}"
 
     logger.info("ID upload link generated: session=%s", session_id)
 

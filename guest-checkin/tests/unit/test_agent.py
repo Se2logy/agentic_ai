@@ -265,6 +265,16 @@ class TestFallbackAgentIntentDetection:
     def test_info_verify_looks_good_means_confirm(self, agent):
         assert agent.detect_intent_regex("Looks good to me", State.INFO_VERIFY_PENDING) == "confirm"
 
+    def test_info_verify_otp_code_detected(self, agent):
+        """6-digit numbers in INFO_VERIFY_PENDING should be detected as verify_otp."""
+        assert agent.detect_intent_regex("123456", State.INFO_VERIFY_PENDING) == "verify_otp"
+        assert agent.detect_intent_regex("My code is 789012", State.INFO_VERIFY_PENDING) == "verify_otp"
+
+    def test_info_verify_non_otp_number_not_verify_otp(self, agent):
+        """Numbers that aren't 6 digits should not be detected as verify_otp."""
+        result = agent.detect_intent_regex("I have 3 guests", State.INFO_VERIFY_PENDING)
+        assert result != "verify_otp"
+
     def test_incidental_damage_waiver_is_select_option(self, agent):
         assert agent.detect_intent_regex("damage waiver", State.INCIDENTAL_PROTECTION_PENDING) == "select_option"
 
@@ -739,11 +749,11 @@ class TestToolRouter:
         assert call_kwargs.kwargs["accepted"] is False
 
     @pytest.mark.asyncio
-    async def test_agree_info_verify_calls_trigger_otp(self, router_with_tools):
+    async def test_confirm_info_verify_calls_trigger_otp(self, router_with_tools):
         router, tools = router_with_tools
         db = AsyncMock()
         result = await router.route(
-            intent="agree",
+            intent="confirm",
             entities={},
             state=State.INFO_VERIFY_PENDING,
             session_id="s-5",
@@ -752,11 +762,11 @@ class TestToolRouter:
         tools["trigger_otp"].assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_agree_info_verify_with_otp_code_calls_verify_otp(self, router_with_tools):
+    async def test_verify_otp_intent_calls_verify_otp(self, router_with_tools):
         router, tools = router_with_tools
         db = AsyncMock()
         result = await router.route(
-            intent="agree",
+            intent="verify_otp",
             entities={"otp_code": "123456"},
             state=State.INFO_VERIFY_PENDING,
             session_id="s-5",

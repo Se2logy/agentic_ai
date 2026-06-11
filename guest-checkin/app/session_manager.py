@@ -91,7 +91,8 @@ _STATE_RESPONSES: dict[State, str] = {
     State.INFO_VERIFY_PENDING: (
         "Please verify your information below. "
         "If everything is correct, reply 'confirm'. "
-        "If anything needs updating, tell me what to change."
+        "If anything needs updating, tell me what to change. "
+        "After confirming, you'll receive a verification code via email."
     ),
     State.ID_VERIFY_PENDING: (
         "Please upload your government-issued ID using the secure link provided."
@@ -396,24 +397,88 @@ class SessionManager:
                 current_state = new_state
 
             elif intent and can_transition(current_state, intent):
-                # Agreement recording is handled by ToolRouter (record_agreement tool)
-                # No need to create Agreement records here — the tool already did it
+                # OTP verification gate: only advance if OTP was verified successfully
+                if intent == "verify_otp" and current_state == State.INFO_VERIFY_PENDING:
+                    if tool_result and tool_result.get("verified"):
+                        # OTP verified — advance to ID_VERIFY_PENDING
+                        new_state = await sm.advance(
+                            intent, guest_response=guest_message
+                        )
+                        current_state = new_state
+                        agent_content = await self._enrich_state_content(
+                            _STATE_RESPONSES.get(
+                                current_state,
+                                get_required_action(current_state),
+                            ),
+                            current_state,
+                            session,
+                            db,
+                        )
+                    else:
+                        # OTP verification failed — stay in INFO_VERIFY_PENDING
+                        error_msg = tool_result.get("error", "Invalid OTP code.") if tool_result else "OTP verification failed."
+                        attempts = tool_result.get("attempts_remaining", 0) if tool_result else 0
+                        if "Maximum attempts" in error_msg:
+                            agent_content = (
+                                f"Maximum OTP attempts exceeded. "
+                                f"Please say 'confirm' to receive a new OTP code."
+                            )
+                        elif "expired" in error_msg.lower():
+                            agent_content = (
+                                f"Your OTP has expired. "
+                                f"Please say 'confirm' to receive a new OTP code."
+                            )
+                        else:
+                            agent_content = (
+                                f"OTP verification failed: {error_msg} "
+                                f"You have {attempts} attempt(s) remaining. "
+                                f"Please try again or say 'confirm' for a new code."
+                            )
 
-                new_state = await sm.advance(
-                    intent, guest_response=guest_message
-                )
-                current_state = new_state
+                elif intent == "confirm" and current_state == State.INFO_VERIFY_PENDING:
+                    # "confirm" is now a self-transition — trigger OTP but stay
+                    new_state = await sm.advance(
+                        intent, guest_response=guest_message
+                    )
+                    current_state = new_state  # stays INFO_VERIFY_PENDING
+                    # Tell the guest that OTP was sent
+                    if tool_result and tool_result.get("otp_sent"):
+                        email = tool_result.get("email", "your email")
+                        agent_content = (
+                            f"Your information has been confirmed! "
+                            f"I've sent a 6-digit verification code to {email}. "
+                            f"Please enter the code to proceed."
+                        )
+                    elif tool_result and tool_result.get("error"):
+                        agent_content = (
+                            f"I confirmed your information, but there was an issue "
+                            f"sending the verification code: {tool_result['error']}. "
+                            f"Please try again."
+                        )
+                    else:
+                        agent_content = (
+                            "Your information has been confirmed! "
+                            "A verification code has been sent to your email. "
+                            "Please enter the 6-digit code to proceed."
+                        )
 
-                # Generate on-enter content for the new state
-                agent_content = await self._enrich_state_content(
-                    _STATE_RESPONSES.get(
+                else:
+                    # Standard state transition
+                    new_state = await sm.advance(
+                        intent, guest_response=guest_message
+                    )
+                    current_state = new_state
+
+                    # Generate on-enter content for the new state
+                    agent_content = await self._enrich_state_content(
+                        _STATE_RESPONSES.get(
+                            current_state,
+                            get_required_action(current_state),
+                        ),
                         current_state,
-                        get_required_action(current_state),
-                    ),
-                    current_state,
-                    session,
-                    db,
-                )
+                        session,
+                        db,
+                    )
             else:
                 # Intent doesn't match valid transition
                 required = get_required_action(current_state)

@@ -215,6 +215,12 @@ async def send_message(
     # Refresh to ensure lazy-loaded attributes are available
     await db.refresh(agent_msg)
 
+    # Update the persisted message with enriched content (links, instructions)
+    # so the response includes the full content with appended links
+    if agent_msg.content != result["agent_content"]:
+        agent_msg.content = result["agent_content"]
+        await db.flush()
+
     return AgentResponse(
         message=MessageResponse.model_validate(agent_msg),
         current_state=session.current_state,
