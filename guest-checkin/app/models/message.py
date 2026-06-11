@@ -15,7 +15,7 @@ class Message(Base):
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     session_id = Column(
-        String(36), ForeignKey("sessions.id"), nullable=False
+        String(36), ForeignKey("sessions.id"), nullable=False, index=True
     )
     role = Column(String(20), nullable=False)  # guest / agent / system
     content = Column(Text, nullable=False)

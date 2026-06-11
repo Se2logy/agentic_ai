@@ -15,7 +15,7 @@ class AuditTrail(Base):
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     session_id = Column(
-        String(36), ForeignKey("sessions.id"), nullable=False
+        String(36), ForeignKey("sessions.id"), nullable=False, index=True
     )
     action = Column(String(100), nullable=False)
     from_state = Column(String(50), nullable=True)

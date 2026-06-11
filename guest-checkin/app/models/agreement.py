@@ -15,7 +15,7 @@ class Agreement(Base):
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     session_id = Column(
-        String(36), ForeignKey("sessions.id"), nullable=False
+        String(36), ForeignKey("sessions.id"), nullable=False, index=True
     )
     agreement_type = Column(
         String(50), nullable=False
