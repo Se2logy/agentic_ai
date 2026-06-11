@@ -72,8 +72,12 @@ async def get_guest_audit_trail(
 
     entries = [
         AuditTrailEntry(
+            id=entry.id,
+            session_id=entry.session_id,
+            action=entry.action,
             from_state=entry.from_state or "",
             to_state=entry.to_state or "",
+            details=entry.details,
             timestamp=entry.created_at,
             actor=entry.actor,
         )

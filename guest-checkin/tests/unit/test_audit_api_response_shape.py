@@ -297,12 +297,12 @@ async def test_audit_trail_pagination_params_in_response(
 
 
 class TestAuditTrailEntryFieldCompleteness:
-    """API-004: AuditTrailEntry has exactly the fields: from_state, to_state,
-    timestamp, actor — no more, no fewer (plus the schema-required set)."""
+    """API-004: AuditTrailEntry has the fields: id, session_id, action,
+    from_state, to_state, details, timestamp, actor."""
 
     def test_entry_has_required_fields(self):
-        """AuditTrailEntry must define from_state, to_state, timestamp, actor."""
-        expected = {"from_state", "to_state", "timestamp", "actor"}
+        """AuditTrailEntry must define id, session_id, action, from_state, to_state, details, timestamp, actor."""
+        expected = {"id", "session_id", "action", "from_state", "to_state", "details", "timestamp", "actor"}
         actual = set(AuditTrailEntry.model_fields.keys())
         assert expected.issubset(actual), (
             f"AuditTrailEntry missing fields: {expected - actual}"
@@ -319,9 +319,15 @@ class TestAuditTrailEntryFieldCompleteness:
     def test_entry_fields_are_correct_types(self):
         """Verify the field type annotations on AuditTrailEntry."""
         fields = AuditTrailEntry.model_fields
-        # from_state: str
+        # id: str
+        assert "str" in str(fields["id"].annotation).lower() or fields["id"].annotation is str
+        # session_id: str
+        assert "str" in str(fields["session_id"].annotation).lower() or fields["session_id"].annotation is str
+        # action: str
+        assert "str" in str(fields["action"].annotation).lower() or fields["action"].annotation is str
+        # from_state: str | None
         assert "str" in str(fields["from_state"].annotation).lower() or fields["from_state"].annotation is str
-        # to_state: str
+        # to_state: str | None
         assert "str" in str(fields["to_state"].annotation).lower() or fields["to_state"].annotation is str
         # timestamp: datetime
         assert "datetime" in str(fields["timestamp"].annotation).lower()

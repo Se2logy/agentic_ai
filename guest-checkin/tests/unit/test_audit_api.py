@@ -19,23 +19,36 @@ from app.main import app
 from app.schemas.audit import AuditTrailEntry, AuditTrailResponse
 
 
+# Helpers
+_DEFAULT_ENTRY = dict(
+    id="audit-001",
+    session_id="session-001",
+    action="advance",
+    from_state="INIT",
+    to_state="PRIVACY_POLICY_PENDING",
+    timestamp=datetime(2024, 1, 1, 12, 0, tzinfo=timezone.utc),
+    actor="guest",
+)
+
+
 # ── Schema tests ──────────────────────────────────────────────────
 
 
 class TestAuditTrailEntrySchema:
     def test_valid_entry(self):
-        entry = AuditTrailEntry(
-            from_state="INIT",
-            to_state="PRIVACY_POLICY_PENDING",
-            timestamp=datetime(2024, 1, 1, 12, 0, tzinfo=timezone.utc),
-            actor="guest",
-        )
+        entry = AuditTrailEntry(**_DEFAULT_ENTRY)
+        assert entry.id == "audit-001"
+        assert entry.session_id == "session-001"
+        assert entry.action == "advance"
         assert entry.from_state == "INIT"
         assert entry.to_state == "PRIVACY_POLICY_PENDING"
         assert entry.actor == "guest"
 
     def test_empty_states(self):
         entry = AuditTrailEntry(
+            id="audit-002",
+            session_id="session-001",
+            action="advance",
             from_state="",
             to_state="INIT",
             timestamp=datetime(2024, 1, 1, 12, 0, tzinfo=timezone.utc),
@@ -45,12 +58,44 @@ class TestAuditTrailEntrySchema:
 
     def test_system_actor(self):
         entry = AuditTrailEntry(
+            id="audit-003",
+            session_id="session-001",
+            action="decline",
             from_state="INIT",
             to_state="PRIVACY_POLICY_PENDING",
             timestamp=datetime(2024, 1, 1, 12, 0, tzinfo=timezone.utc),
             actor="system",
         )
         assert entry.actor == "system"
+
+    def test_optional_details(self):
+        entry = AuditTrailEntry(
+            id="audit-004",
+            session_id="session-001",
+            action="advance",
+            from_state="INIT",
+            to_state="PRIVACY_POLICY_PENDING",
+            timestamp=datetime(2024, 1, 1, 12, 0, tzinfo=timezone.utc),
+            actor="guest",
+            details={"reason": "user accepted"},
+        )
+        assert entry.details == {"reason": "user accepted"}
+
+    def test_null_optional_fields(self):
+        """from_state, to_state, and details can be None/null."""
+        entry = AuditTrailEntry(
+            id="audit-005",
+            session_id="session-001",
+            action="resume",
+            from_state=None,
+            to_state=None,
+            details=None,
+            timestamp=datetime(2024, 1, 1, 12, 0, tzinfo=timezone.utc),
+            actor="system",
+        )
+        assert entry.from_state is None
+        assert entry.to_state is None
+        assert entry.details is None
 
 
 class TestAuditTrailResponseSchema:
@@ -63,12 +108,7 @@ class TestAuditTrailResponseSchema:
         assert resp.page == 1
 
     def test_paginated_response(self):
-        entry = AuditTrailEntry(
-            from_state="INIT",
-            to_state="PRIVACY_POLICY_PENDING",
-            timestamp=datetime(2024, 1, 1, 12, 0, tzinfo=timezone.utc),
-            actor="guest",
-        )
+        entry = AuditTrailEntry(**_DEFAULT_ENTRY)
         resp = AuditTrailResponse(
             entries=[entry], total=100, page=2, page_size=50
         )
@@ -106,14 +146,22 @@ def mock_guest():
 def mock_audit_rows():
     """Return mock AuditTrail rows."""
     row1 = MagicMock()
+    row1.id = "audit-001"
+    row1.session_id = "session-001"
+    row1.action = "advance"
     row1.from_state = "INIT"
     row1.to_state = "PRIVACY_POLICY_PENDING"
+    row1.details = None
     row1.created_at = datetime(2024, 1, 1, 12, 0, tzinfo=timezone.utc)
     row1.actor = "guest"
 
     row2 = MagicMock()
+    row2.id = "audit-002"
+    row2.session_id = "session-001"
+    row2.action = "advance"
     row2.from_state = "PRIVACY_POLICY_PENDING"
     row2.to_state = "HOUSE_RULES_PENDING"
+    row2.details = {"auto": True}
     row2.created_at = datetime(2024, 1, 1, 12, 5, tzinfo=timezone.utc)
     row2.actor = "system"
 
@@ -151,34 +199,49 @@ class TestAuditTrailEntryValidation:
         """Omitting a required field should raise ValidationError."""
         with pytest.raises(ValidationError):
             AuditTrailEntry(
-                from_state="INIT",
-                to_state="PRIVACY_POLICY_PENDING",
+                id="audit-001",
+                session_id="session-001",
+                action="advance",
                 # missing timestamp
                 actor="guest",
             )
 
-    def test_missing_actor_raises(self):
+    def test_missing_id_raises(self):
         with pytest.raises(ValidationError):
             AuditTrailEntry(
+                session_id="session-001",
+                action="advance",
                 from_state="INIT",
                 to_state="PRIVACY_POLICY_PENDING",
                 timestamp=datetime(2024, 1, 1, tzinfo=timezone.utc),
-                # missing actor
+                actor="guest",
+                # missing id
+            )
+
+    def test_missing_action_raises(self):
+        with pytest.raises(ValidationError):
+            AuditTrailEntry(
+                id="audit-001",
+                session_id="session-001",
+                from_state="INIT",
+                to_state="PRIVACY_POLICY_PENDING",
+                timestamp=datetime(2024, 1, 1, tzinfo=timezone.utc),
+                actor="guest",
+                # missing action
             )
 
     def test_model_dump(self):
         """Ensure serialisation produces expected keys."""
-        entry = AuditTrailEntry(
-            from_state="INIT",
-            to_state="PRIVACY_POLICY_PENDING",
-            timestamp=datetime(2024, 1, 1, 12, 0, tzinfo=timezone.utc),
-            actor="guest",
-        )
+        entry = AuditTrailEntry(**_DEFAULT_ENTRY)
         data = entry.model_dump()
+        assert "id" in data
+        assert "session_id" in data
+        assert "action" in data
         assert "from_state" in data
         assert "to_state" in data
         assert "timestamp" in data
         assert "actor" in data
+        assert "details" in data
 
 
 class TestAuditTrailResponseValidation:
@@ -187,6 +250,9 @@ class TestAuditTrailResponseValidation:
     def test_response_with_multiple_entries(self):
         entries = [
             AuditTrailEntry(
+                id=f"audit-{i}",
+                session_id="session-001",
+                action="advance",
                 from_state=f"STATE_{i}",
                 to_state=f"STATE_{i+1}",
                 timestamp=datetime(2024, 1, 1, i, 0, tzinfo=timezone.utc),
@@ -255,7 +321,7 @@ class TestAuditEndpointStructure:
         from app.models.audit_trail import AuditTrail
         model_cols = {c.name for c in AuditTrail.__table__.columns}
         # The schema should at least reference these model attributes
-        expected_schema_fields = {"from_state", "to_state", "actor"}
+        expected_schema_fields = {"id", "session_id", "action", "from_state", "to_state", "actor", "details"}
         schema_fields = set(AuditTrailEntry.model_fields.keys())
         assert expected_schema_fields.issubset(schema_fields), (
             f"AuditTrailEntry missing fields: {expected_schema_fields - schema_fields}"

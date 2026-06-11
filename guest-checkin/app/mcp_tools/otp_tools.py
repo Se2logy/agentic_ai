@@ -199,7 +199,7 @@ async def verify_otp(
     otp_record.attempts += 1
     attempts_remaining = otp_record.max_attempts - otp_record.attempts
 
-    if otp_record.attempts > otp_record.max_attempts:
+    if otp_record.attempts >= otp_record.max_attempts:
         await db_session.flush()
         return {
             "verified": False,
