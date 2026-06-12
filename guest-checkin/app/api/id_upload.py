@@ -15,6 +15,7 @@ from app.models.session import Session
 from app.services import link_service, storage_service
 from app.state_machine import StateMachine
 from app.state_machine.states import State
+from app.state_machine.transitions import get_required_action
 
 logger = logging.getLogger(__name__)
 
@@ -147,19 +148,43 @@ async def upload_id_document(
         await db.flush()
 
     # Advance state machine: ID_VERIFY_PENDING → INCIDENTAL_PROTECTION_PENDING
+    new_state = None
     try:
         current_state = State(session.current_state)
         if current_state == State.ID_VERIFY_PENDING:
             sm = StateMachine(db_session=db, session_id=session.id)
             await sm.advance("upload_id", guest_response="ID uploaded via secure link")
             await db.flush()
+            # Reload session to get the new state
+            await db.refresh(session)
+            new_state = session.current_state
             logger.info(
-                "State advanced after ID upload: session=%s", session_id
+                "State advanced after ID upload: session=%s -> %s",
+                session_id,
+                new_state,
             )
     except Exception as exc:
         logger.warning(
             "Could not advance state after ID upload: %s", exc
         )
+
+    # Push WebSocket state_update so the chat widget knows immediately
+    if new_state is not None:
+        try:
+            from app.api.websocket import manager as ws_manager
+
+            await ws_manager.send_state_update(
+                session_id,
+                {
+                    "current_state": new_state,
+                    "required_action": get_required_action(State(new_state)),
+                    "message": "ID document uploaded successfully",
+                },
+            )
+        except Exception as exc:
+            logger.warning(
+                "Failed to push WS state_update after ID upload: %s", exc
+            )
 
     logger.info(
         "ID document uploaded for session %s: %s", session_id, file_path

@@ -130,6 +130,20 @@ async def select_incidental(
             logger.info(
                 "State advanced after incidental payment: session=%s", session_id
             )
+            # Push WS state_update so the chat widget reflects the new state
+            try:
+                new_state, required_action = await sm.get_current_state()
+                from app.api.websocket import manager as ws_manager
+                await ws_manager.send_state_update(
+                    str(session.id),
+                    {
+                        "current_state": new_state.value,
+                        "required_action": required_action,
+                        "message": "Incidental protection selection completed",
+                    },
+                )
+            except Exception as exc:
+                logger.warning("Could not push WS state update after incidental: %s", exc)
     except Exception as exc:
         logger.warning(
             "Could not advance state after incidental payment: %s", exc
@@ -214,7 +228,7 @@ def _build_selection_page(token: str, return_url: str | None = None) -> str:
       .then(result => {{
         document.getElementById('selectionForm').style.display = 'none';
         const rd = document.getElementById('result'); rd.style.display = 'block';
-        if (result.ok) {{ rd.className = 'result success'; rd.innerHTML = '<h2>✓ Payment Successful!</h2><p>' + result.data.message + '</p><p style="margin-top:12px;font-size:14px;color:#5f6368;">Returning to check-in chat...</p>'; setTimeout(function() {{ if (window.opener) {{ window.close(); }} else {{ window.history.back(); }} }}, 2000); }}
+        if (result.ok) {{ rd.className = 'result success'; rd.innerHTML = '<h2>✓ Payment Successful!</h2><p>' + result.data.message + '</p><p style="margin-top:12px;font-size:14px;color:#5f6368;">Returning to check-in chat...</p>'; setTimeout(function() {{ if (returnUrl) {{ window.location.href = returnUrl; }} else if (window.opener) {{ window.close(); }} else {{ window.history.back(); }} }}, 2000); }}
         else {{ rd.className = 'result error'; rd.innerHTML = '<h2>Payment Failed</h2><p>' + (result.data.detail||result.data.message||'Error') + '</p>'; }}
       }})
       .catch(err => {{
