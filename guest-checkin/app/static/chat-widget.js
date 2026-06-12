@@ -35,6 +35,7 @@
     this.reconnectMs   = 1000;
     this.maxReconnectMs= 30000;
     this.reconnectTimer= null;
+    this._syncStateTimer = null;
     this.typingTimer   = null;
     this.callbacks     = { message: [] };
     this.messages      = [];
@@ -95,6 +96,7 @@
         '</div>' +
       '</div>' +
       '<div class="gci-state-bar" id="gci-state-bar">Initializing...</div>' +
+      '<div class="gci-required-action" style="display:none;"></div>' +
       '<div class="gci-conn-bar" id="gci-conn-bar">Connection lost. Reconnecting...</div>' +
       '<div class="gci-messages" id="gci-messages"></div>' +
       '<div class="gci-input-area">' +
@@ -327,25 +329,6 @@
     .catch(function () { /* silently ignore */ });
   };
 
-  proto._fetchArrivalInstructions = function () {
-    // Ask the agent for arrival instructions (triggers COMPLETED enrichment)
-    this.sendMessage('show me my arrival instructions');
-  };
-
-  proto._stepMessage = function (state, action) {
-    var msgs = {
-      'PRIVACY_POLICY_PENDING': 'Welcome back! You\'re on the Privacy Policy step.',
-      'HOUSE_RULES_PENDING': 'Welcome back! You\'re on the House Rules step.',
-      'RENTAL_AGREEMENT_PENDING': 'Welcome back! You\'re on the Rental Agreement step.',
-      'INFO_VERIFY_PENDING': 'Welcome back! Please verify your information.',
-      'ID_VERIFY_PENDING': 'Welcome back! Please upload your ID using the secure link.',
-      'INCIDENTAL_PROTECTION_PENDING': 'Welcome back! Please select your incidental protection option.',
-      'COMPLETED': 'Your check-in is complete!',
-      'REFUSED': 'Your check-in was declined.'
-    };
-    return msgs[state] || ('Welcome back! Current step: ' + (action || state));
-  };
-
   /* ── Typing Indicator ──────────────────────────────────────────── */
   proto._showTyping = function () {
     if (document.getElementById('gci-typing')) return;
@@ -469,6 +452,63 @@
     return doc.body.innerHTML;
   };
 
+  /* ── Step Indicator (state_update aware) ─────────────────────────── */
+  proto._updateStepIndicator = function (state) {
+    var stepMap = {
+      'INIT': -1,
+      'PRIVACY_POLICY_PENDING': 0,
+      'HOUSE_RULES_PENDING': 1,
+      'RENTAL_AGREEMENT_PENDING': 2,
+      'INFO_VERIFY_PENDING': 3,
+      'ID_VERIFY_PENDING': 4,
+      'INCIDENTAL_PROTECTION_PENDING': 5,
+      'COMPLETED': 6,
+      'REFUSED': -1
+    };
+    var idx = stepMap[state];
+    if (idx !== undefined && idx >= 0) {
+      this._setActiveStep(idx);
+    }
+  };
+
+  proto._setActiveStep = function (idx) {
+    STEPS.forEach(function (s, i) {
+      var icon = document.getElementById('gci-step-' + i);
+      var stepEl = icon ? icon.parentElement : null;
+      if (!icon) return;
+
+      icon.className = 'gci-step-icon';
+      if (stepEl) stepEl.className = 'gci-step';
+
+      if (i < idx || idx >= STEPS.length) {
+        icon.classList.add('gci-done');
+        if (stepEl) stepEl.classList.add('gci-done');
+        icon.innerHTML = '&#10003;';
+      } else if (i === idx) {
+        icon.classList.add('gci-current');
+        if (stepEl) stepEl.classList.add('gci-current');
+        icon.innerHTML = (i + 1);
+      } else {
+        icon.innerHTML = '&#8226;';
+      }
+    });
+
+    // Progress line
+    var line = document.getElementById('gci-progress-line');
+    if (line) {
+      var pct = (idx >= STEPS.length) ? 100 : (idx / STEPS.length) * 100;
+      line.style.width = pct + '%';
+    }
+  };
+
+  proto._updateRequiredAction = function (action) {
+    var el = this.container.querySelector('.gci-required-action');
+    if (el && action) {
+      el.textContent = action;
+      el.style.display = 'block';
+    }
+  };
+
   /* ── Progress Bar ──────────────────────────────────────────────── */
   proto._updateProgress = function (state) {
     var currentIdx = STEP_MAP[state];
@@ -528,6 +568,10 @@
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
+    }
+    if (this._syncStateTimer) {
+      clearTimeout(this._syncStateTimer);
+      this._syncStateTimer = null;
     }
     if (this.ws) {
       this.ws.onclose = null;
