@@ -233,10 +233,11 @@
       this._hideTyping();
       var msg = payload.message || {};
       var content = msg.content || '';
+      var instructionsHtml = payload.instructions_html || null;
       this.currentState   = payload.current_state || this.currentState;
       this.requiredAction = payload.required_action || '';
       this.sessionStatus  = payload.session_status || this.sessionStatus;
-      this._addMessage('agent', content);
+      this._addMessage('agent', content, instructionsHtml);
       this._updateProgress(this.currentState);
       this._updateStateBar(this.requiredAction);
 
@@ -371,7 +372,7 @@
   };
 
   /* ── Message Rendering ─────────────────────────────────────────── */
-  proto._addMessage = function (role, content) {
+  proto._addMessage = function (role, content, instructionsHtml) {
     var box = document.getElementById('gci-messages');
     var div = document.createElement('div');
     div.className = 'gci-msg gci-msg-' + role;
@@ -381,6 +382,14 @@
       div.innerHTML = this._renderAgentContent(content);
     } else {
       div.textContent = content;
+    }
+
+    // Append safe-HTML instructions block if provided
+    if (role === 'agent' && instructionsHtml) {
+      var instrDiv = document.createElement('div');
+      instrDiv.className = 'gci-instructions';
+      instrDiv.innerHTML = this._sanitizeHtml(instructionsHtml);
+      div.appendChild(instrDiv);
     }
 
     box.appendChild(div);
@@ -441,6 +450,25 @@
     var d = document.createElement('div');
     d.textContent = s;
     return d.innerHTML;
+  };
+
+  proto._sanitizeHtml = function (html) {
+    var parser = new DOMParser();
+    var doc = parser.parseFromString(html, 'text/html');
+    // Remove dangerous elements
+    var dangerous = doc.querySelectorAll('script, iframe, object, embed');
+    dangerous.forEach(function (el) { el.remove(); });
+    // Remove on* event attributes and javascript: URLs
+    var allElements = doc.querySelectorAll('*');
+    allElements.forEach(function (el) {
+      var attrs = Array.from(el.attributes);
+      attrs.forEach(function (attr) {
+        if (attr.name.startsWith('on') || attr.value.toLowerCase().indexOf('javascript:') === 0) {
+          el.removeAttribute(attr.name);
+        }
+      });
+    });
+    return doc.body.innerHTML;
   };
 
   /* ── Progress Bar ──────────────────────────────────────────────── */
