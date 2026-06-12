@@ -437,14 +437,14 @@
     var parser = new DOMParser();
     var doc = parser.parseFromString(html, 'text/html');
     // Remove dangerous elements
-    var dangerous = doc.querySelectorAll('script, iframe, object, embed');
+    var dangerous = doc.querySelectorAll('script, iframe, object, embed, svg, math');
     dangerous.forEach(function (el) { el.remove(); });
     // Remove on* event attributes and javascript: URLs
     var allElements = doc.querySelectorAll('*');
     allElements.forEach(function (el) {
       var attrs = Array.from(el.attributes);
       attrs.forEach(function (attr) {
-        if (attr.name.startsWith('on') || attr.value.toLowerCase().indexOf('javascript:') === 0) {
+        if (attr.name.startsWith('on') || attr.value.replace(/\s/g, '').toLowerCase().indexOf('javascript:') === 0 || attr.value.replace(/\s/g, '').toLowerCase().indexOf('data:text/html') === 0) {
           el.removeAttribute(attr.name);
         }
       });

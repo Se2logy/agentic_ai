@@ -1,5 +1,6 @@
 """Incidental protection selection endpoints — serve selection page and process payment."""
 
+import json
 import logging
 from decimal import Decimal
 from pathlib import Path
@@ -162,7 +163,7 @@ async def select_incidental(
 
 def _build_selection_page(token: str, return_url: str | None = None) -> str:
     """Build the HTML selection page for incidental protection."""
-    return_url_js = f'var returnUrl = "{return_url}";' if return_url else 'var returnUrl = null;'
+    return_url_js = f'var returnUrl = {json.dumps(return_url)};' if return_url else 'var returnUrl = null;'
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>

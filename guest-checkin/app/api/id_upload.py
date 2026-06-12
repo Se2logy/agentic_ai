@@ -1,5 +1,6 @@
 """ID document upload endpoints — accepts uploads via secure link token."""
 
+import json
 import logging
 from pathlib import Path
 
@@ -60,10 +61,11 @@ async def get_upload_page(
         )
     html_content = upload_page.read_text()
 
-    # Inject return_url into the page as a JS variable
+    # Inject return_url into the page as a JS variable (escaped for XSS safety)
     if effective_return_url:
+        safe_js_url = json.dumps(effective_return_url)  # Proper JS string escaping
         return_url_script = (
-            f'<script>var returnUrl = "{effective_return_url}";</script>'
+            f'<script>var returnUrl = {safe_js_url};</script>'
         )
         html_content = html_content.replace(
             "</head>", f"{return_url_script}\n</head>"
