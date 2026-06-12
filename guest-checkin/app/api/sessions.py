@@ -59,6 +59,36 @@ async def create_session(
             detail=f"Reservation not found for booking reference: {body.booking_reference}",
         )
 
+    # Check for existing active session with this reservation
+    stmt = select(Session).where(
+        Session.reservation_id == reservation.id,
+        Session.status == "active",
+    )
+    result = await db.execute(stmt)
+    existing_session = result.scalar_one_or_none()
+
+    if existing_session:
+        await db.refresh(existing_session)
+        # Determine existing_status based on current_state
+        if existing_session.current_state == "COMPLETED":
+            existing_status = "completed"
+        elif existing_session.current_state == "REFUSED":
+            existing_status = "refused"
+        else:
+            existing_status = "active"
+        return SessionResponse(
+            id=str(existing_session.id),
+            reservation_id=str(existing_session.reservation_id),
+            guest_id=str(existing_session.guest_id),
+            current_state=existing_session.current_state,
+            session_token=existing_session.session_token,
+            status=existing_session.status,
+            created_at=existing_session.created_at,
+            updated_at=existing_session.updated_at,
+            resumed=True,
+            existing_status=existing_status,
+        )
+
     # Find or create guest
     result = await db.execute(
         select(Guest).where(Guest.email == reservation.guest_email)
