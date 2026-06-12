@@ -374,9 +374,9 @@ class TestFallbackAgentResponseGeneration:
         response = agent.generate_response("agree", State.RENTAL_AGREEMENT_PENDING)
         assert "Rental Agreement" in response
 
-    def test_info_verify_agree_response(self, agent):
-        response = agent.generate_response("agree", State.INFO_VERIFY_PENDING)
-        assert "confirmed" in response.lower() or "ID" in response
+    def test_info_verify_confirm_response(self, agent):
+        response = agent.generate_response("confirm", State.INFO_VERIFY_PENDING)
+        assert "confirmed" in response.lower() or "verification" in response.lower()
 
     def test_info_verify_provide_info_response(self, agent):
         response = agent.generate_response("provide_info", State.INFO_VERIFY_PENDING)
