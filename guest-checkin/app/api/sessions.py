@@ -199,11 +199,9 @@ async def send_message(
     current_state = State(result["current_state"])
 
     if current_state == State.COMPLETED:
-        instructions = await _session_manager.get_arrival_instructions(
-            session_id, db
-        )
-        if instructions:
-            result["agent_content"] += f"\n\n{instructions}"
+        # instructions_html is already provided by session_manager
+        # — do NOT concatenate it into agent_content
+        pass
 
     elif current_state == State.ID_VERIFY_PENDING:
         upload_url = await _session_manager.get_id_upload_link(
@@ -256,6 +254,7 @@ async def send_message(
         current_state=session.current_state,
         required_action=result["required_action"],
         session_status=session.status,
+        instructions_html=result.get("instructions_html"),
     )
 
 
