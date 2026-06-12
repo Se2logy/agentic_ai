@@ -50,19 +50,26 @@ GENERATE_TOOL_PARAMETERS = {
             "type": "string",
             "description": "The current check-in session ID.",
         },
+        "return_url": {
+            "type": "string",
+            "description": "Optional URL to redirect the guest back to after completing the incidental selection.",
+        },
     },
     "required": ["session_id"],
 }
 
 
 async def generate_incidental_link(
-    db_session: AsyncSession, session_id: str
+    db_session: AsyncSession,
+    session_id: str,
+    return_url: str | None = None,
 ) -> dict[str, Any]:
     """Generate a secure link for incidental protection selection.
 
     Args:
         db_session: Async database session.
         session_id: The check-in session ID.
+        return_url: Optional URL to redirect back to after selection.
 
     Returns:
         Dict with selection_url and options, or error.
@@ -78,7 +85,9 @@ async def generate_incidental_link(
     if session is None:
         return {"error": f"Session not found: {session_id}"}
 
-    token = link_service.generate_incidental_link(session_id)
+    token = link_service.generate_incidental_link(
+        session_id, return_url=return_url
+    )
     selection_url = f"/api/v1/incidental/{token}"
 
     logger.info("Incidental link generated: session=%s", session_id)

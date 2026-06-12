@@ -28,19 +28,26 @@ GENERATE_TOOL_PARAMETERS = {
             "type": "string",
             "description": "The current check-in session ID.",
         },
+        "return_url": {
+            "type": "string",
+            "description": "Optional URL to redirect the guest back to after completing the ID upload.",
+        },
     },
     "required": ["session_id"],
 }
 
 
 async def generate_id_upload_link(
-    db_session: AsyncSession, session_id: str
+    db_session: AsyncSession,
+    session_id: str,
+    return_url: str | None = None,
 ) -> dict[str, Any]:
     """Generate a secure upload link for ID document.
 
     Args:
         db_session: Async database session.
         session_id: The check-in session ID.
+        return_url: Optional URL to redirect back to after upload.
 
     Returns:
         Dict with upload_url and expires_in, or error.
@@ -56,7 +63,7 @@ async def generate_id_upload_link(
     if session is None:
         return {"error": f"Session not found: {session_id}"}
 
-    token = link_service.generate_upload_link(session_id)
+    token = link_service.generate_upload_link(session_id, return_url=return_url)
     upload_url = f"/api/v1/id-upload/{token}"
 
     logger.info("ID upload link generated: session=%s", session_id)

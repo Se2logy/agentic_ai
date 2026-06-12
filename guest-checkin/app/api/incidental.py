@@ -4,7 +4,7 @@ import logging
 from decimal import Decimal
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import HTMLResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -33,6 +33,7 @@ _TEMPLATE_DIR = Path(__file__).resolve().parent.parent / "templates"
 )
 async def get_incidental_page(
     token: str,
+    return_url: str | None = Query(default=None),
 ) -> HTMLResponse:
     """Render the incidental protection selection page for a secure link token."""
     payload = link_service.verify_link(token)
@@ -42,7 +43,10 @@ async def get_incidental_page(
             detail="Invalid or expired selection link",
         )
 
-    html_content = _build_selection_page(token)
+    # Token-embedded return_url takes precedence over query param
+    effective_return_url = payload.get("return_url") or return_url
+
+    html_content = _build_selection_page(token, return_url=effective_return_url)
     return HTMLResponse(content=html_content)
 
 
@@ -142,14 +146,16 @@ async def select_incidental(
     )
 
 
-def _build_selection_page(token: str) -> str:
+def _build_selection_page(token: str, return_url: str | None = None) -> str:
     """Build the HTML selection page for incidental protection."""
+    return_url_js = f'var returnUrl = "{return_url}";' if return_url else 'var returnUrl = null;'
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Select Incidental Protection</title>
+  <script>{return_url_js}</script>
   <style>
     body {{ font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #f4f5f7; margin: 0; padding: 0; }}
     .container {{ max-width: 520px; margin: 40px auto; background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }}

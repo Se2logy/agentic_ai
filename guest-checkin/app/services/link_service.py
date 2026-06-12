@@ -21,6 +21,7 @@ class LinkPayload:
     session_id: str
     purpose: str
     exp: int  # Unix timestamp
+    return_url: str | None = None
 
 
 class InvalidTokenError(Exception):
@@ -45,28 +46,39 @@ class LinkService:
 
     # ── Public API ────────────────────────────────────────────────
 
-    def generate_upload_link(self, session_id: str, purpose: str = "id_upload") -> str:
+    def generate_upload_link(
+        self,
+        session_id: str,
+        purpose: str = "id_upload",
+        return_url: str | None = None,
+    ) -> str:
         """Generate a secure upload link token.
 
         Args:
             session_id: The check-in session this link belongs to.
             purpose: Link purpose identifier (default: "id_upload").
+            return_url: Optional URL to redirect back to after upload.
 
         Returns:
             Token string (base64url(payload) + "." + hmac).
         """
-        return self._create_token(session_id, purpose)
+        return self._create_token(session_id, purpose, return_url=return_url)
 
-    def generate_incidental_link(self, session_id: str) -> str:
+    def generate_incidental_link(
+        self, session_id: str, return_url: str | None = None
+    ) -> str:
         """Generate a secure incidental-protection link token.
 
         Args:
             session_id: The check-in session this link belongs to.
+            return_url: Optional URL to redirect back to after selection.
 
         Returns:
             Token string.
         """
-        return self._create_token(session_id, "incidental_protection")
+        return self._create_token(
+            session_id, "incidental_protection", return_url=return_url
+        )
 
     def verify_link(self, token: str) -> dict | None:
         """Verify a link token and return its payload, or None if invalid/expired.
@@ -75,7 +87,8 @@ class LinkService:
             token: The token string to verify.
 
         Returns:
-            Dict with ``session_id`` and ``purpose`` if valid, else None.
+            Dict with ``session_id``, ``purpose``, and optionally
+            ``return_url`` if valid, else None.
         """
         try:
             return self._verify_token(token)
@@ -85,9 +98,16 @@ class LinkService:
 
     # ── Token internals ───────────────────────────────────────────
 
-    def _create_token(self, session_id: str, purpose: str) -> str:
+    def _create_token(
+        self,
+        session_id: str,
+        purpose: str,
+        return_url: str | None = None,
+    ) -> str:
         exp = int(time.time()) + (self.expiry_hours * 3600)
-        payload = {"session_id": session_id, "purpose": purpose, "exp": exp}
+        payload: dict = {"session_id": session_id, "purpose": purpose, "exp": exp}
+        if return_url is not None:
+            payload["return_url"] = return_url
         payload_json = json.dumps(payload, separators=(",", ":"))
         payload_b64 = base64.urlsafe_b64encode(payload_json.encode()).decode().rstrip("=")
         signature = self._sign(payload_b64)
@@ -127,6 +147,7 @@ class LinkService:
         return {
             "session_id": payload["session_id"],
             "purpose": payload["purpose"],
+            "return_url": payload.get("return_url"),
         }
 
     def _sign(self, payload_b64: str) -> str:
