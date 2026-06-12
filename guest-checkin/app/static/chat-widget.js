@@ -264,8 +264,12 @@
     if (type === 'state_update') {
       this.currentState   = payload.current_state || this.currentState;
       this.requiredAction = payload.required_action || this.requiredAction;
+      this._updateStepIndicator(this.currentState);
+      this._updateRequiredAction(payload.required_action);
       this._updateProgress(this.currentState);
-      this._updateStateBar(this.requiredAction);
+      this._updateStateBar(payload.required_action || '');
+      this._addMessage('agent', payload.message || 'State updated', null);
+      return;
     }
   };
 
@@ -298,43 +302,29 @@
     input.focus();
   };
 
-  /* ── State Sync (reconnect) ─────────────────────────────────────── */
+  /* ── State Sync (reconnect + visibility) ─────────────────────────── */
   proto._syncState = function () {
     var self = this;
-    var url = this.apiUrl + '/sessions/' + this.sessionId + '/state';
-    var xhr = new XMLHttpRequest();
-    xhr.open('GET', url, true);
-    xhr.setRequestHeader('Authorization', 'Bearer ' + this.token);
-    xhr.onreadystatechange = function () {
-      if (xhr.readyState !== 4) return;
-      if (xhr.status === 401 || xhr.status === 403) {
-        // Token auth not supported on this endpoint, skip sync
-        return;
+    if (this._syncStateTimer) clearTimeout(this._syncStateTimer);
+    this._syncStateTimer = setTimeout(function () {
+      self._fetchCurrentState();
+    }, 2000);
+  };
+
+  proto._fetchCurrentState = function () {
+    var self = this;
+    if (!this.sessionId || !this.apiUrl) return;
+    fetch(this.apiUrl + '/sessions/' + this.sessionId + '/state', {
+      headers: { 'Authorization': 'Bearer ' + this.token }
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      if (data.current_state) {
+        self._updateStepIndicator(data.current_state);
+        self._updateRequiredAction(data.required_action);
       }
-      if (xhr.status !== 200) return;
-      try {
-        var data = JSON.parse(xhr.responseText);
-        var newState = data.current_state || 'INIT';
-        if (newState !== self.currentState) {
-          // State changed while we were disconnected
-          self.currentState = newState;
-          self.requiredAction = data.required_action || '';
-          self._updateProgress(newState);
-          self._updateStateBar(data.required_action || '');
-
-          // Tell the user what step they're on now
-          var stepMsg = self._stepMessage(newState, data.required_action);
-          self._addSystemMessage(stepMsg);
-
-          if (newState === 'COMPLETED') {
-            self._addSystemMessage('Check-in complete! You may close this window.');
-            // Fetch arrival instructions via WebSocket
-            self._fetchArrivalInstructions();
-          }
-        }
-      } catch (e) { /* ignore parse errors */ }
-    };
-    xhr.send();
+    })
+    .catch(function () { /* silently ignore */ });
   };
 
   proto._fetchArrivalInstructions = function () {
