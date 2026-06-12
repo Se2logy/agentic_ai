@@ -25,8 +25,9 @@ class FallbackAgent:
     # request_help MUST come before question so "I need help" wins over "can I".
     _INTENT_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
         ("decline", re.compile(
-            r"\b(don'?t\s+agree|don'?t\s+accept|i\s+decline|i\s+refuse|"
-            r"decline|disagree|reject|refuse|nope|no)\b",
+            r"\b(no|nope|decline(?:d|s)?|refuse(?:d|s)?|reject(?:ed|s)?|"
+            r"disagree(?:d|s)?|do\s+not\s+agree|don'?t\s+agree|"
+            r"i\s+decline|i\s+refuse|no\s+thanks|nah)\b",
             re.IGNORECASE,
         )),
         ("request_help", re.compile(
@@ -47,7 +48,9 @@ class FallbackAgent:
             re.IGNORECASE,
         )),
         ("agree", re.compile(
-            r"\b(yes|yeah|yep|agree|accept|okay|ok|sure|i\s+do|i\s+accept|i\s+agree|correct|confirmed)\b",
+            r"\b(yes|yeah|yep|agree(?:d|s|ment)?|accept(?:ed|s)?|"
+            r"acknowledged?|okay|ok|sure|i\s+do|i\s+accept(?:ed)?|"
+            r"i\s+agree(?:d)?|correct|confirmed)\b",
             re.IGNORECASE,
         )),
         ("greeting", re.compile(
