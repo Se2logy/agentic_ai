@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Guest Check-In — Implementation Workflow</title>
+<style>
+  :root { --accent: #2563eb; --bg: #f8fafc; --card: #ffffff; --border: #e2e8f0; --text: #1e293b; --muted: #64748b; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: var(--text); background: var(--bg); line-height: 1.7; }
+  .container { max-width: 900px; margin: 0 auto; padding: 2rem 1.5rem; }
+  h1 { font-size: 2rem; margin-bottom: .5rem; color: var(--accent); }
+  h2 { font-size: 1.5rem; margin: 2.5rem 0 1rem; border-bottom: 2px solid var(--accent); padding-bottom: .25rem; }
+  h3 { font-size: 1.15rem; margin: 1.5rem 0 .5rem; }
+  p, li { margin-bottom: .5rem; }
+  .toc { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem 1.5rem; margin: 1.5rem 0; }
+  .toc a { color: var(--accent); text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  .toc ol { padding-left: 1.5rem; }
+  .toc li { margin-bottom: .25rem; }
+  .diagram-card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; margin: 1rem 0 2rem; overflow-x: auto; }
+  .mermaid { display: flex; justify-content: center; }
+  .note { background: #eff6ff; border-left: 4px solid var(--accent); padding: .75rem 1rem; border-radius: 4px; margin: 1rem 0; font-size: .95rem; }
+  table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+  th, td { text-align: left; padding: .5rem .75rem; border: 1px solid var(--border); font-size: .9rem; }
+  th { background: #f1f5f9; }
+  @media print { body { background: white; } .container { padding: 0; } .diagram-card { border: none; box-shadow: none; } }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>Guest Check-In System — Implementation Workflow</h1>
+<p>Technical documentation describing the state machine, agent execution pipeline, LLM fallback chain, and full onboarding flow.</p>
+
+<div class="toc">
+  <strong>Table of Contents</strong>
+  <ol>
+    <li><a href="#sec1">State Machine Diagram</a></li>
+    <li><a href="#sec2">Agent Execution Sequence</a></li>
+    <li><a href="#sec3">LLM Pipeline with Fallback</a></li>
+    <li><a href="#sec4">Full User Onboarding Flow</a></li>
+  </ol>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="sec1">1. State Machine Diagram</h2>
+
+<p>The guest check-in workflow is governed by a 9-state finite state machine. Each state represents a required onboarding step; transitions are driven by <strong>intents</strong> detected from the guest's messages. The transition table is defined in <code>app/state_machine/transitions.py</code> and the state enum in <code>app/state_machine/states.py</code>.</p>
+
+<h3>States</h3>
+<table>
+  <tr><th>State</th><th>Required Action</th><th>Valid Intents</th></tr>
+  <tr><td><code>INIT</code></td><td>Initialize check-in session</td><td>start</td></tr>
+  <tr><td><code>PRIVACY_POLICY_PENDING</code></td><td>Accept or decline Privacy Policy</td><td>agree, decline</td></tr>
+  <tr><td><code>HOUSE_RULES_PENDING</code></td><td>Accept or decline House Rules</td><td>agree, decline</td></tr>
+  <tr><td><code>RENTAL_AGREEMENT_PENDING</code></td><td>Accept or decline Rental Agreement</td><td>agree, decline</td></tr>
+  <tr><td><code>INFO_VERIFY_PENDING</code></td><td>Confirm personal info &amp; verify OTP</td><td>confirm, provide_info, verify_otp</td></tr>
+  <tr><td><code>ID_VERIFY_PENDING</code></td><td>Upload government-issued ID</td><td>upload_id</td></tr>
+  <tr><td><code>INCIDENTAL_PROTECTION_PENDING</code></td><td>Select Damage Waiver or Security Hold</td><td>select_option</td></tr>
+  <tr><td><code>COMPLETED</code></td><td>None — onboarding finished</td><td><em>(terminal)</em></td></tr>
+  <tr><td><code>REFUSED</code></td><td>Guest declined an agreement</td><td>resume</td></tr>
+</table>
+
+<h3>State Diagram</h3>
+<div class="diagram-card">
+<div class="mermaid">
+stateDiagram-v2
+    direction TB
+
+    INIT --> PRIVACY_POLICY_PENDING : start
+    PRIVACY_POLICY_PENDING --> HOUSE_RULES_PENDING : agree
+    PRIVACY_POLICY_PENDING --> REFUSED : decline
+    HOUSE_RULES_PENDING --> RENTAL_AGREEMENT_PENDING : agree
+    HOUSE_RULES_PENDING --> REFUSED : decline
+    RENTAL_AGREEMENT_PENDING --> INFO_VERIFY_PENDING : agree
+    RENTAL_AGREEMENT_PENDING --> REFUSED : decline
+    INFO_VERIFY_PENDING --> INFO_VERIFY_PENDING : confirm / provide_info
+    INFO_VERIFY_PENDING --> ID_VERIFY_PENDING : verify_otp
+    ID_VERIFY_PENDING --> INCIDENTAL_PROTECTION_PENDING : upload_id
+    INCIDENTAL_PROTECTION_PENDING --> COMPLETED : select_option
+    REFUSED --> INIT : resume
+</div>
+</div>
+
+<div class="note">
+  <strong>Note:</strong> The self-transitions on <code>INFO_VERIFY_PENDING</code> (<code>confirm</code> and <code>provide_info</code>) keep the guest in the same state. <code>confirm</code> triggers an OTP email; <code>provide_info</code> lets the guest correct their details before confirming. Only <code>verify_otp</code> (after successful OTP verification) advances to <code>ID_VERIFY_PENDING</code>.
+</div>
+
+<!-- ============================================================ -->
+<h2 id="sec2">2. Agent Execution Sequence</h2>
+
+<p>When a guest sends a message, the <code>SessionManager.process_message()</code> method orchestrates the full pipeline: load session → detect intent → extract entities → route to MCP tool → advance state → generate response. The sequence diagram below shows the interactions between the core components.</p>
+
+<div class="diagram-card">
+<div class="mermaid">
+sequenceDiagram
+    autonumber
+    participant G as Guest
+    participant SM as SessionManager
+    participant ID as IntentDetector
+    participant FA as FallbackAgent
+    participant EE as EntityExtractor
+    participant TR as ToolRouter
+    participant MCP as MCP_Tools
+    participant STM as StateMachine
+
+    G->>SM: process_message(session_id, guest_msg, db)
+    SM->>SM: Load Session from DB
+    SM->>SM: Get current State
+
+    %% Intent detection
+    SM->>ID: detect_intent(message, state)
+    ID->>ID: _detect_intent_llm(message, state)
+    alt Ollama LLM succeeds
+        ID-->>SM: llm_intent
+    else Ollama unavailable
+        ID->>FA: detect_intent_regex(message, state)
+        FA-->>ID: regex_intent
+        ID-->>SM: regex_intent
+    end
+
+    %% Entity extraction
+    SM->>EE: extract_entities(message, state)
+    alt Ollama LLM succeeds
+        EE-->>SM: entities dict
+    else Ollama unavailable
+        EE->>EE: _extract_regex(message, state)
+        EE-->>SM: entities dict
+    end
+
+    %% Tool routing
+    SM->>TR: route(intent, entities, state, session_id, db)
+    TR->>MCP: Execute mapped tool
+    MCP-->>TR: tool_result
+    TR-->>SM: (tool_result, tools_called)
+
+    %% State advancement
+    SM->>STM: advance(intent, guest_response) or decline(guest_response)
+    STM-->>SM: new_state
+    SM->>SM: _enrich_response(content, new_state, session, db)
+
+    %% Save & return
+    SM->>SM: Save Guest & Agent messages to DB
+    SM-->>G: {agent_content, intent_detected, tools_called, current_state, required_action}
+</div>
+</div>
+
+<div class="note">
+  <strong>Key detail:</strong> The OTP verification gate lives inside <code>_advance_state()</code>. When the intent is <code>verify_otp</code> and the tool result indicates failure, the state machine does <em>not</em> advance — the guest stays in <code>INFO_VERIFY_PENDING</code> and receives an error message with remaining attempts.
+</div>
+
+<!-- ============================================================ -->
+<h2 id="sec3">3. LLM Pipeline with Fallback</h2>
+
+<p>The system uses a primary Ollama LLM (Llama 3.1 8B) for intent detection and entity extraction. When Ollama is unavailable or returns an invalid intent, a regex-based <code>FallbackAgent</code> takes over. The flowchart below illustrates this two-tier strategy.</p>
+
+<h3>Intent Detection Pipeline</h3>
+<div class="diagram-card">
+<div class="mermaid">
+flowchart TD
+    A[Guest sends message] --> B[IntentDetector.detect_intent]
+    B --> C{Try Ollama LLM<br/>_detect_intent_llm}
+    C -->|Success| D{Intent in<br/>VALID_INTENTS?}
+    D -->|Yes| E{Intent valid for<br/>current state<br/>transition?}
+    E -->|Yes| F[Return LLM intent]
+    E -->|No| G[Log: LLM intent not valid for state]
+    D -->|No| G
+    G --> H[FallbackAgent.detect_intent_regex]
+    C -->|OllamaUnavailableError| H
+    C -->|Other Exception| H
+    H --> I[Apply state-specific<br/>regex overrides]
+    I --> J[Match against<br/>_INTENT_PATTERNS]
+    J --> K[Return regex intent]
+    F --> L[SessionManager continues<br/>with detected intent]
+    K --> L
+</div>
+</div>
+
+<h3>Entity Extraction Pipeline</h3>
+<div class="diagram-card">
+<div class="mermaid">
+flowchart TD
+    M[Need entities?<br/>INFO_VERIFY or INCIDENTAL_PROTECTION] -->|Yes| N[EntityExtractor.extract_entities]
+    M -->|No| O[Return empty dict]
+    N --> P{Try Ollama LLM}
+    P -->|Success| Q[Return LLM-parsed entities]
+    P -->|OllamaUnavailableError| R[Fallback: _extract_regex]
+    P -->|Other Exception| R
+    R --> S[Return regex-extracted entities]
+    Q --> T[SessionManager routes to tool]
+    S --> T
+    O --> T
+</div>
+</div>
+
+<h3>FallbackAgent Regex Patterns</h3>
+<p>The <code>FallbackAgent</code> uses an ordered list of compiled regex patterns. The order matters — more specific patterns are checked first:</p>
+<ol>
+  <li><strong>decline</strong> — "no", "declined", "refuse", "don't agree", etc.</li>
+  <li><strong>request_help</strong> — "I need help", "speak to someone", etc.</li>
+  <li><strong>select_option</strong> — "damage waiver", "security hold", "option 1/2"</li>
+  <li><strong>provide_info</strong> — "my name is", "call me", "update", "change"</li>
+  <li><strong>question</strong> — "what", "when", "how", or contains "?""</li>
+  <li><strong>agree</strong> — "yes", "agree", "accept", "okay", "confirmed"</li>
+  <li><strong>greeting</strong> — "hi", "hello", "hey", "good morning"</li>
+</ol>
+<p>State-specific overrides run <em>before</em> the general patterns:</p>
+<ul>
+  <li><code>INIT</code> → "start/begin/ready" → <strong>start</strong></li>
+  <li><code>INFO_VERIFY_PENDING</code> → "confirm/correct" → <strong>confirm</strong>; 6-digit number → <strong>verify_otp</strong></li>
+  <li><code>ID_VERIFY_PENDING</code> → "uploaded/sent id" → <strong>upload_id</strong></li>
+  <li><code>INCIDENTAL_PROTECTION_PENDING</code> → "damage waiver/security hold" → <strong>select_option</strong></li>
+  <li><code>REFUSED</code> → "resume/restart" → <strong>resume</strong></li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="sec4">4. Full User Onboarding Flow</h2>
+
+<p>This flowchart shows the complete guest onboarding journey from start to finish, including all agreement steps, the OTP verification sub-flow, external links for ID upload and incidental protection, and the decline/resume cycle.</p>
+
+<div class="diagram-card">
+<div class="mermaid">
+flowchart TD
+    START([Guest enters booking reference]) --> INIT[Create Session<br/>State: INIT]
+    INIT -->|start| PP[Privacy Policy<br/>PRIVACY_POLICY_PENDING]
+    PP -->|agree| HR[House Rules<br/>HOUSE_RULES_PENDING]
+    PP -->|decline| REFUSED[REFUSED]
+    HR -->|agree| RA[Rental Agreement<br/>RENTAL_AGREEMENT_PENDING]
+    HR -->|decline| REFUSED
+    RA -->|agree| IV[Info Verification<br/>INFO_VERIFY_PENDING]
+    RA -->|decline| REFUSED
+
+    IV -->|confirm| OTP[Trigger OTP<br/>Stay in INFO_VERIFY_PENDING]
+    OTP -->|verify_otp<br/>OTP valid| IDV[ID Upload<br/>ID_VERIFY_PENDING]
+    OTP -->|verify_otp<br/>OTP invalid| IV2[Error: re-enter OTP<br/>Stay in INFO_VERIFY_PENDING]
+    IV -->|provide_info| IV3[Update guest info<br/>Stay in INFO_VERIFY_PENDING]
+    IV3 -->|confirm| OTP
+    IV2 -->|verify_otp| IDV
+    IV2 -->|confirm| OTP
+
+    IDV -->|upload_id<br/>via secure link| INC[Incidental Protection<br/>INCIDENTAL_PROTECTION_PENDING]
+    INC -->|select_option<br/>via payment link| DONE[COMPLETED]
+    DONE --> ARRIVE([Arrival Instructions<br/>sent to guest])
+
+    REFUSED -->|resume| INIT
+
+    style REFUSED fill:#fecaca,stroke:#dc2626,color:#7f1d1d
+    style DONE fill:#bbf7d0,stroke:#16a34a,color:#14532d
+    style START fill:#dbeafe,stroke:#2563eb,color:#1e3a8a
+    style ARRIVE fill:#bbf7d0,stroke:#16a34a,color:#14532d
+</div>
+</div>
+
+<h3>Step-by-Step Walkthrough</h3>
+<ol>
+  <li><strong>Session Creation</strong> — The guest provides a booking reference. A new session is created in the <code>INIT</code> state.</li>
+  <li><strong>Privacy Policy</strong> — The agent presents the privacy policy text. The guest must <code>agree</code> or <code>decline</code>. Declining sends the guest to <code>REFUSED</code>.</li>
+  <li><strong>House Rules</strong> — Same agree/decline pattern. Agreement is recorded via the <code>record_agreement</code> MCP tool.</li>
+  <li><strong>Rental Agreement</strong> — Same agree/decline pattern. Third and final agreement step.</li>
+  <li><strong>Info Verification</strong> — The agent retrieves the guest's reservation data (name, email, phone, guest count). The guest can:
+    <ul>
+      <li><code>provide_info</code> — correct details (self-transition)</li>
+      <li><code>confirm</code> — triggers OTP email (self-transition, stays in <code>INFO_VERIFY_PENDING</code>)</li>
+      <li><code>verify_otp</code> — if OTP is valid, advances to <code>ID_VERIFY_PENDING</code>; if invalid, error with remaining attempts</li>
+    </ul>
+  </li>
+  <li><strong>ID Upload</strong> — The agent generates a secure, HMAC-signed, time-limited link for uploading a government-issued ID. The guest uploads externally and confirms with <code>upload_id</code>.</li>
+  <li><strong>Incidental Protection</strong> — The agent generates a selection + payment link. The guest chooses between Damage Waiver ($49) or Security Hold ($250). Confirming with <code>select_option</code> completes onboarding.</li>
+  <li><strong>Completed</strong> — Arrival instructions (property address, WiFi, lockbox code, check-in/out times) are fetched and delivered to the guest.</li>
+  <li><strong>Resume from Refusal</strong> — At any <code>REFUSED</code> state, the guest can say "resume" to restart from <code>INIT</code>.</li>
+</ol>
+
+<div class="note">
+  <strong>External flows:</strong> ID upload and incidental protection both use HMAC-signed, time-limited links generated by <code>app/services/link_service.py</code>. The guest completes these steps outside the chat widget (in a browser), then returns to the chat to confirm completion.
+</div>
+
+<hr/>
+<p style="text-align:center; color:var(--muted); font-size:.85rem; margin-top:2rem;">Generated from source code in <code>app/state_machine/</code>, <code>app/session_manager.py</code>, <code>app/agent/</code> &bull; Guest Check-In System</p>
+
+</div>
+
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'default',
+    securityLevel: 'loose',
+    flowchart: { useMaxWidth: true, htmlLabels: true, curve: 'basis' },
+    sequence: { useMaxWidth: true, wrap: true },
+    stateDiagram: { useMaxWidth: true }
+  });
+</script>
+</body>
+</html>
