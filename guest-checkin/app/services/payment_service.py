@@ -3,6 +3,7 @@
 import abc
 import uuid
 from dataclasses import dataclass, field
+from decimal import Decimal
 
 import logging
 
@@ -25,7 +26,7 @@ class PaymentGateway(abc.ABC):
     async def process_payment(
         self,
         guest_id: str,
-        amount: float,
+        amount: float | Decimal,
         description: str,
         metadata: dict | None = None,
     ) -> PaymentResult:
@@ -62,7 +63,7 @@ class MockPayment(PaymentGateway):
     async def process_payment(
         self,
         guest_id: str,
-        amount: float,
+        amount: float | Decimal,
         description: str,
         metadata: dict | None = None,
     ) -> PaymentResult:

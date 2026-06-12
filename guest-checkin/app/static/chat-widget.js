@@ -21,7 +21,7 @@
   STEPS.forEach(function (s) { STEP_MAP[s.state] = s.idx; });
 
   /* ── URL detection regex ───────────────────────────────────────── */
-  var URL_RE = /https?:\/\/[^\s<>"']+/g;
+  var URL_RE = /(?:https?:\/\/[^\s<>"']+|\/api\/v1\/[^\s<>"']+)/g;
 
   /* ── Constructor ───────────────────────────────────────────────── */
   function GuestCheckInWidget(config) {
@@ -35,6 +35,7 @@
     this.reconnectMs   = 1000;
     this.maxReconnectMs= 30000;
     this.reconnectTimer= null;
+    this._syncStateTimer = null;
     this.typingTimer   = null;
     this.callbacks     = { message: [] };
     this.messages      = [];
@@ -95,6 +96,7 @@
         '</div>' +
       '</div>' +
       '<div class="gci-state-bar" id="gci-state-bar">Initializing...</div>' +
+      '<div class="gci-required-action" style="display:none;"></div>' +
       '<div class="gci-conn-bar" id="gci-conn-bar">Connection lost. Reconnecting...</div>' +
       '<div class="gci-messages" id="gci-messages"></div>' +
       '<div class="gci-input-area">' +
@@ -138,6 +140,14 @@
         self._handleSend();
       }
     });
+
+    // Sync state when user returns to the chat tab (e.g. after
+    // completing ID upload or incidental payment in another tab)
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'visible') {
+        self._syncState();
+      }
+    });
   };
 
   /* ── WebSocket ─────────────────────────────────────────────────── */
@@ -157,6 +167,9 @@
       self._hideConnBar();
       self._setConnText('Connected');
       self._setInputEnabled(true);
+      // Sync state on (re)connect — the state may have changed while
+      // the guest was on an external page (ID upload, payment, etc.)
+      self._syncState();
     };
 
     this.ws.onmessage = function (evt) {
@@ -230,10 +243,11 @@
       this._hideTyping();
       var msg = payload.message || {};
       var content = msg.content || '';
+      var instructionsHtml = payload.instructions_html || null;
       this.currentState   = payload.current_state || this.currentState;
       this.requiredAction = payload.required_action || '';
       this.sessionStatus  = payload.session_status || this.sessionStatus;
-      this._addMessage('agent', content);
+      this._addMessage('agent', content, instructionsHtml);
       this._updateProgress(this.currentState);
       this._updateStateBar(this.requiredAction);
 
@@ -252,8 +266,12 @@
     if (type === 'state_update') {
       this.currentState   = payload.current_state || this.currentState;
       this.requiredAction = payload.required_action || this.requiredAction;
+      this._updateStepIndicator(this.currentState);
+      this._updateRequiredAction(payload.required_action);
       this._updateProgress(this.currentState);
-      this._updateStateBar(this.requiredAction);
+      this._updateStateBar(payload.required_action || '');
+      this._addMessage('agent', payload.message || 'State updated', null);
+      return;
     }
   };
 
@@ -286,6 +304,31 @@
     input.focus();
   };
 
+  /* ── State Sync (reconnect + visibility) ─────────────────────────── */
+  proto._syncState = function () {
+    var self = this;
+    if (this._syncStateTimer) clearTimeout(this._syncStateTimer);
+    this._syncStateTimer = setTimeout(function () {
+      self._fetchCurrentState();
+    }, 2000);
+  };
+
+  proto._fetchCurrentState = function () {
+    var self = this;
+    if (!this.sessionId || !this.apiUrl) return;
+    fetch(this.apiUrl + '/sessions/' + this.sessionId + '/state', {
+      headers: { 'Authorization': 'Bearer ' + this.token }
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      if (data.current_state) {
+        self._updateStepIndicator(data.current_state);
+        self._updateRequiredAction(data.required_action);
+      }
+    })
+    .catch(function () { /* silently ignore */ });
+  };
+
   /* ── Typing Indicator ──────────────────────────────────────────── */
   proto._showTyping = function () {
     if (document.getElementById('gci-typing')) return;
@@ -310,7 +353,7 @@
   };
 
   /* ── Message Rendering ─────────────────────────────────────────── */
-  proto._addMessage = function (role, content) {
+  proto._addMessage = function (role, content, instructionsHtml) {
     var box = document.getElementById('gci-messages');
     var div = document.createElement('div');
     div.className = 'gci-msg gci-msg-' + role;
@@ -320,6 +363,14 @@
       div.innerHTML = this._renderAgentContent(content);
     } else {
       div.textContent = content;
+    }
+
+    // Append safe-HTML instructions block if provided
+    if (role === 'agent' && instructionsHtml) {
+      var instrDiv = document.createElement('div');
+      instrDiv.className = 'gci-instructions';
+      instrDiv.innerHTML = this._sanitizeHtml(instructionsHtml);
+      div.appendChild(instrDiv);
     }
 
     box.appendChild(div);
@@ -345,6 +396,12 @@
 
     // Replace URLs with secure link cards if they look like upload/payment links
     html = html.replace(URL_RE, function (url) {
+      // Make relative URLs absolute
+      var fullUrl = url;
+      if (url.indexOf('/') === 0) {
+        fullUrl = location.origin + url;
+      }
+
       var isSecure = url.indexOf('/id-upload/') !== -1 ||
                      url.indexOf('/incidental/') !== -1 ||
                      url.indexOf('token=') !== -1;
@@ -352,7 +409,7 @@
         var desc = 'Open secure page';
         if (url.indexOf('/id-upload/') !== -1) desc = 'Upload your government-issued ID';
         if (url.indexOf('/incidental/') !== -1) desc = 'Select incidental protection & pay';
-        return '<a class="gci-secure-link" href="' + self._escapeHtml(url) +
+        return '<a class="gci-secure-link" href="' + self._escapeHtml(fullUrl) +
                '" target="_blank" rel="noopener noreferrer">' +
                '<div class="gci-secure-link-header">' +
                  '<span class="gci-secure-link-icon">&#128274;</span>' +
@@ -362,7 +419,7 @@
                '<div class="gci-secure-link-desc">' + desc + '</div>' +
              '</a>';
       }
-      return '<a href="' + self._escapeHtml(url) +
+      return '<a href="' + self._escapeHtml(fullUrl) +
              '" target="_blank" rel="noopener noreferrer">' +
              self._escapeHtml(url) + '</a>';
     });
@@ -374,6 +431,82 @@
     var d = document.createElement('div');
     d.textContent = s;
     return d.innerHTML;
+  };
+
+  proto._sanitizeHtml = function (html) {
+    var parser = new DOMParser();
+    var doc = parser.parseFromString(html, 'text/html');
+    // Remove dangerous elements
+    var dangerous = doc.querySelectorAll('script, iframe, object, embed, svg, math');
+    dangerous.forEach(function (el) { el.remove(); });
+    // Remove on* event attributes and javascript: URLs
+    var allElements = doc.querySelectorAll('*');
+    allElements.forEach(function (el) {
+      var attrs = Array.from(el.attributes);
+      attrs.forEach(function (attr) {
+        if (attr.name.startsWith('on') || attr.value.replace(/\s/g, '').toLowerCase().indexOf('javascript:') === 0 || attr.value.replace(/\s/g, '').toLowerCase().indexOf('data:text/html') === 0) {
+          el.removeAttribute(attr.name);
+        }
+      });
+    });
+    return doc.body.innerHTML;
+  };
+
+  /* ── Step Indicator (state_update aware) ─────────────────────────── */
+  proto._updateStepIndicator = function (state) {
+    var stepMap = {
+      'INIT': -1,
+      'PRIVACY_POLICY_PENDING': 0,
+      'HOUSE_RULES_PENDING': 1,
+      'RENTAL_AGREEMENT_PENDING': 2,
+      'INFO_VERIFY_PENDING': 3,
+      'ID_VERIFY_PENDING': 4,
+      'INCIDENTAL_PROTECTION_PENDING': 5,
+      'COMPLETED': 6,
+      'REFUSED': -1
+    };
+    var idx = stepMap[state];
+    if (idx !== undefined && idx >= 0) {
+      this._setActiveStep(idx);
+    }
+  };
+
+  proto._setActiveStep = function (idx) {
+    STEPS.forEach(function (s, i) {
+      var icon = document.getElementById('gci-step-' + i);
+      var stepEl = icon ? icon.parentElement : null;
+      if (!icon) return;
+
+      icon.className = 'gci-step-icon';
+      if (stepEl) stepEl.className = 'gci-step';
+
+      if (i < idx || idx >= STEPS.length) {
+        icon.classList.add('gci-done');
+        if (stepEl) stepEl.classList.add('gci-done');
+        icon.innerHTML = '&#10003;';
+      } else if (i === idx) {
+        icon.classList.add('gci-current');
+        if (stepEl) stepEl.classList.add('gci-current');
+        icon.innerHTML = (i + 1);
+      } else {
+        icon.innerHTML = '&#8226;';
+      }
+    });
+
+    // Progress line
+    var line = document.getElementById('gci-progress-line');
+    if (line) {
+      var pct = (idx >= STEPS.length) ? 100 : (idx / STEPS.length) * 100;
+      line.style.width = pct + '%';
+    }
+  };
+
+  proto._updateRequiredAction = function (action) {
+    var el = this.container.querySelector('.gci-required-action');
+    if (el && action) {
+      el.textContent = action;
+      el.style.display = 'block';
+    }
   };
 
   /* ── Progress Bar ──────────────────────────────────────────────── */
@@ -435,6 +568,10 @@
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
+    }
+    if (this._syncStateTimer) {
+      clearTimeout(this._syncStateTimer);
+      this._syncStateTimer = null;
     }
     if (this.ws) {
       this.ws.onclose = null;

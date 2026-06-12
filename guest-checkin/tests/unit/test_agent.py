@@ -265,11 +265,85 @@ class TestFallbackAgentIntentDetection:
     def test_info_verify_looks_good_means_confirm(self, agent):
         assert agent.detect_intent_regex("Looks good to me", State.INFO_VERIFY_PENDING) == "confirm"
 
+    def test_info_verify_otp_code_detected(self, agent):
+        """6-digit numbers in INFO_VERIFY_PENDING should be detected as verify_otp."""
+        assert agent.detect_intent_regex("123456", State.INFO_VERIFY_PENDING) == "verify_otp"
+        assert agent.detect_intent_regex("My code is 789012", State.INFO_VERIFY_PENDING) == "verify_otp"
+
+    def test_info_verify_non_otp_number_not_verify_otp(self, agent):
+        """Numbers that aren't 6 digits should not be detected as verify_otp."""
+        result = agent.detect_intent_regex("I have 3 guests", State.INFO_VERIFY_PENDING)
+        assert result != "verify_otp"
+
     def test_incidental_damage_waiver_is_select_option(self, agent):
         assert agent.detect_intent_regex("damage waiver", State.INCIDENTAL_PROTECTION_PENDING) == "select_option"
 
     def test_incidental_security_hold_is_select_option(self, agent):
         assert agent.detect_intent_regex("security hold", State.INCIDENTAL_PROTECTION_PENDING) == "select_option"
+
+    # ── Inflected agreement / decline forms (Bug 2) ──────────────
+
+    @pytest.mark.parametrize("state", [
+        State.PRIVACY_POLICY_PENDING,
+        State.HOUSE_RULES_PENDING,
+        State.RENTAL_AGREEMENT_PENDING,
+    ])
+    @pytest.mark.parametrize("message", [
+        "accepted",
+        "agreed",
+        "acknowledged",
+        "I accepted",
+        "I agreed",
+        "acknowledge",
+    ])
+    def test_fallback_agree_accepts_inflected_forms(self, agent, state, message):
+        """Inflected agree inputs (accepted, agreed, acknowledged, …)
+        must resolve to 'agree' in every agreement state."""
+        assert agent.detect_intent_regex(message, state) == "agree"
+
+    @pytest.mark.parametrize("state", [
+        State.PRIVACY_POLICY_PENDING,
+        State.HOUSE_RULES_PENDING,
+        State.RENTAL_AGREEMENT_PENDING,
+    ])
+    @pytest.mark.parametrize("message", [
+        "declined",
+        "refused",
+        "rejected",
+        "disagreed",
+        "I refuse",
+        "I decline",
+        "no thanks",
+        "nah",
+    ])
+    def test_fallback_decline_accepts_inflected_forms(self, agent, state, message):
+        """Inflected decline inputs (declined, refused, rejected, …)
+        must resolve to 'decline' in every agreement state."""
+        assert agent.detect_intent_regex(message, state) == "decline"
+
+    @pytest.mark.parametrize("message", [
+        "agree",
+        "accept",
+        "yes",
+        "ok",
+        "sure",
+        "confirmed",
+    ])
+    def test_fallback_still_recognizes_original_forms(self, agent, message):
+        """Original base forms (agree, accept, yes, ok, sure, confirmed)
+        must still resolve to 'agree'."""
+        assert agent.detect_intent_regex(message, State.PRIVACY_POLICY_PENDING) == "agree"
+
+    @pytest.mark.parametrize("message", [
+        "acceptable",
+        "exception",
+        "agreeable",
+    ])
+    def test_fallback_no_false_positives_on_partial_words(self, agent, message):
+        """Words that merely contain agree/accept as a substring
+        must NOT be detected as 'agree'."""
+        result = agent.detect_intent_regex(message, State.PRIVACY_POLICY_PENDING)
+        assert result != "agree"
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -300,9 +374,9 @@ class TestFallbackAgentResponseGeneration:
         response = agent.generate_response("agree", State.RENTAL_AGREEMENT_PENDING)
         assert "Rental Agreement" in response
 
-    def test_info_verify_agree_response(self, agent):
-        response = agent.generate_response("agree", State.INFO_VERIFY_PENDING)
-        assert "confirmed" in response.lower() or "ID" in response
+    def test_info_verify_confirm_response(self, agent):
+        response = agent.generate_response("confirm", State.INFO_VERIFY_PENDING)
+        assert "confirmed" in response.lower() or "verification" in response.lower()
 
     def test_info_verify_provide_info_response(self, agent):
         response = agent.generate_response("provide_info", State.INFO_VERIFY_PENDING)
@@ -739,11 +813,11 @@ class TestToolRouter:
         assert call_kwargs.kwargs["accepted"] is False
 
     @pytest.mark.asyncio
-    async def test_agree_info_verify_calls_trigger_otp(self, router_with_tools):
+    async def test_confirm_info_verify_calls_trigger_otp(self, router_with_tools):
         router, tools = router_with_tools
         db = AsyncMock()
         result = await router.route(
-            intent="agree",
+            intent="confirm",
             entities={},
             state=State.INFO_VERIFY_PENDING,
             session_id="s-5",
@@ -752,11 +826,11 @@ class TestToolRouter:
         tools["trigger_otp"].assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_agree_info_verify_with_otp_code_calls_verify_otp(self, router_with_tools):
+    async def test_verify_otp_intent_calls_verify_otp(self, router_with_tools):
         router, tools = router_with_tools
         db = AsyncMock()
         result = await router.route(
-            intent="agree",
+            intent="verify_otp",
             entities={"otp_code": "123456"},
             state=State.INFO_VERIFY_PENDING,
             session_id="s-5",

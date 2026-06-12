@@ -2,6 +2,8 @@
 
 import uuid
 
+from decimal import Decimal
+
 from sqlalchemy import Column, DateTime, ForeignKey, Numeric, String, func
 from sqlalchemy.orm import relationship
 
@@ -15,12 +17,12 @@ class IncidentalSelection(Base):
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     session_id = Column(
-        String(36), ForeignKey("sessions.id"), nullable=False
+        String(36), ForeignKey("sessions.id"), nullable=False, index=True
     )
     selection_type = Column(
         String(50), nullable=False
     )  # damage_waiver / security_hold
-    amount = Column(Numeric(10, 2), nullable=False)  # DECIMAL(10,2) — avoids floating-point precision loss
+    amount = Column(Numeric(10, 2), nullable=False, default=Decimal("0.00"))  # DECIMAL(10,2) — avoids floating-point precision loss
     payment_status = Column(
         String(20), default="pending"
     )  # pending / completed / failed

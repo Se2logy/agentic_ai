@@ -108,6 +108,19 @@
       margin-top: 4px;
       font-size: 11px;
     }
+    .resume-btn {
+      background: #1a73e8;
+      color: white;
+      border: none;
+      padding: 10px 24px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      margin-top: 12px;
+    }
+    .resume-btn:hover {
+      background: #1557b0;
+    }
   </style>
 </head>
 <body>
@@ -173,6 +186,81 @@
         var wsHost     = apiBase.replace(/^https?:\/\//, '');
         var wsUrl      = wsProto + '://' + wsHost + '/api/v1/ws/' + sessionId + '?token=' + encodeURIComponent(token);
 
+        // Build widget config with existing session token/ID when resumed
+        var widgetConfig = {
+          sessionId: sessionId,
+          token: token,
+          wsUrl: wsUrl,
+          apiUrl: apiBase + '/api/v1'
+        };
+
+        // Handle resumed sessions
+        if (data.resumed) {
+          if (data.existing_status === 'completed') {
+            status.textContent = 'Your check-in is already complete!';
+            status.style.color = '#1a73e8';
+            sessionDiv.style.display = 'block';
+            sessionDiv.innerHTML =
+              '<strong>Session Complete</strong>' +
+              '<code>ID: ' + sessionId + '</code>' +
+              '<code>State: ' + data.current_state + '</code>';
+            // Initialize widget so user can see chat history with arrival instructions
+            widget = GuestCheckInWidget.init(widgetConfig);
+            document.getElementById('gci-widget').classList.remove('gci-closed');
+            document.getElementById('gci-fab').classList.add('gci-hidden');
+            btn.textContent = 'Check-In Complete';
+            return;
+          } else if (data.existing_status === 'refused') {
+            status.textContent = 'Your previous check-in was declined. You can resume to start over.';
+            status.style.color = '#dc3545';
+            sessionDiv.style.display = 'block';
+            sessionDiv.innerHTML =
+              '<strong>Session Refused</strong>' +
+              '<code>ID: ' + sessionId + '</code>' +
+              '<code>State: ' + data.current_state + '</code>';
+            // Show resume button
+            var resumeBtn = document.createElement('button');
+            resumeBtn.textContent = 'Resume Check-In';
+            resumeBtn.className = 'resume-btn';
+            resumeBtn.onclick = function () {
+              resumeBtn.disabled = true;
+              resumeBtn.textContent = 'Resuming...';
+              status.textContent = 'Resuming session...';
+              status.style.color = '';
+              // Call POST /sessions/{id}/resume to restart from INIT
+              fetch(apiBase + '/api/v1/sessions/' + sessionId + '/resume', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-API-Key': 'demo-key' }
+              })
+              .then(function (resp) {
+                if (!resp.ok) return resp.json().then(function (d) { throw new Error(d.detail || resp.statusText); });
+                return resp.json();
+              })
+              .then(function (resumeData) {
+                status.textContent = 'Session resumed! Starting check-in...';
+                status.style.color = '#1a73e8';
+                resumeBtn.remove();
+                // Initialize widget — WebSocket will pick up the reset state
+                widget = GuestCheckInWidget.init(widgetConfig);
+                document.getElementById('gci-widget').classList.remove('gci-closed');
+                document.getElementById('gci-fab').classList.add('gci-hidden');
+                btn.textContent = 'Check-In In Progress';
+              })
+              .catch(function (err) {
+                status.textContent = 'Error resuming: ' + err.message;
+                resumeBtn.disabled = false;
+                resumeBtn.textContent = 'Resume Check-In';
+              });
+            };
+            document.querySelector('.demo-header').appendChild(resumeBtn);
+            btn.textContent = 'Check-In Refused';
+            return;
+          }
+          // Active session — just resume
+          status.textContent = 'Resuming your check-in session...';
+          status.style.color = '#1a73e8';
+        }
+
         status.textContent = '';
         sessionDiv.style.display = 'block';
         sessionDiv.innerHTML =
@@ -181,12 +269,7 @@
           '<code>State: ' + data.current_state + '</code>';
 
         // Initialize widget
-        widget = GuestCheckInWidget.init({
-          sessionId: sessionId,
-          token: token,
-          wsUrl: wsUrl,
-          apiUrl: apiBase + '/api/v1'
-        });
+        widget = GuestCheckInWidget.init(widgetConfig);
 
         // Open widget immediately
         document.getElementById('gci-widget').classList.remove('gci-closed');

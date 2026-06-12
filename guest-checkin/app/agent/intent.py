@@ -17,6 +17,9 @@ logger = logging.getLogger(__name__)
 VALID_INTENTS = frozenset({
     "agree",
     "decline",
+    "confirm",
+    "verify_otp",
+    "upload_id",
     "question",
     "provide_info",
     "select_option",
@@ -32,14 +35,20 @@ Current state: {state}
 Required action: {required_action}
 
 Classify the following guest message into exactly one of these intents:
-- agree: Guest accepts/agrees to the current step
-- decline: Guest declines/rejects the current step
+- agree: Guest accepts, agrees, accepted, agreed, acknowledges, acknowledged, or confirms the current agreement
+- decline: Guest declines, declined, refuses, refused, rejects, rejected, disagrees, disagreed, or says no to the current agreement
+- confirm: Guest confirms their personal information is correct (used in INFO_VERIFY_PENDING)
+- verify_otp: Guest is providing a 6-digit OTP verification code (a numeric code like "123456")
+- upload_id: Guest confirms they have uploaded their ID document
 - question: Guest is asking a question
 - provide_info: Guest is providing or correcting personal information
 - select_option: Guest is selecting an option (e.g., damage waiver vs security hold)
 - request_help: Guest is asking for human assistance
 - greeting: Guest is greeting the assistant
 - other: None of the above
+
+IMPORTANT: Recognize all word forms (e.g., "accepted", "agreed", "acknowledged" = agree; "declined", "refused", "rejected", "disagreed" = decline).
+IMPORTANT: If the guest message contains a 6-digit number (like "123456" or "456789"), classify it as "verify_otp", NOT "agree" or "confirm".
 
 Guest message: "{message}"
 

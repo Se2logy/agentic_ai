@@ -126,6 +126,23 @@ class ConnectionManager:
             results[sid] = await self.send_message(sid, message)
         return results
 
+    async def send_state_update(self, session_id: str, data: dict) -> None:
+        """Push a state_update message to the WebSocket connection for a session.
+
+        Used by REST endpoints (id_upload, incidental) to notify the chat
+        widget when the state machine advances externally.
+        """
+        ws = self.active_connections.get(session_id)
+        if ws is None:
+            return
+        message = json.dumps({"type": "state_update", **data})
+        try:
+            await ws.send_text(message)
+        except Exception:
+            logger.warning(
+                "Failed to push state_update to session=%s", session_id
+            )
+
     def is_connected(self, session_id: str) -> bool:
         """Check whether a session currently has an active WS."""
         return session_id in self.active_connections
@@ -183,11 +200,9 @@ async def _process_guest_message(
     current_state = State(result["current_state"])
 
     if current_state == State.COMPLETED:
-        instructions = await _session_manager.get_arrival_instructions(
-            session.id, db
-        )
-        if instructions:
-            result["agent_content"] += f"\n\n{instructions}"
+        # instructions_html is already provided by session_manager
+        # — do NOT concatenate it into agent_content
+        pass
 
     elif current_state == State.ID_VERIFY_PENDING:
         upload_url = await _session_manager.get_id_upload_link(
@@ -215,6 +230,7 @@ async def _process_guest_message(
             "intent_detected": result.get("intent_detected"),
             "tools_called": result.get("tools_called"),
         },
+        "instructions_html": result.get("instructions_html"),
         "current_state": result["current_state"],
         "required_action": result.get("required_action", ""),
         "session_status": result.get("session_status", "active"),

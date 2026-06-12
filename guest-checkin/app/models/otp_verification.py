@@ -15,7 +15,7 @@ class OTPVerification(Base):
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     session_id = Column(
-        String(36), ForeignKey("sessions.id"), nullable=False
+        String(36), ForeignKey("sessions.id"), nullable=False, index=True
     )
     email = Column(String(255), nullable=False)
     otp_code = Column(String(10), index=True, nullable=False)

@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth.api_key import get_api_key
+from app.auth.api_key import get_api_key, get_api_key_or_session
 from app.auth.session_token import generate_session_token
 from app.database import get_db
 from app.models.api_key import APIKey
@@ -59,6 +59,36 @@ async def create_session(
             detail=f"Reservation not found for booking reference: {body.booking_reference}",
         )
 
+    # Check for existing active session with this reservation
+    stmt = select(Session).where(
+        Session.reservation_id == reservation.id,
+        Session.status == "active",
+    )
+    result = await db.execute(stmt)
+    existing_session = result.scalar_one_or_none()
+
+    if existing_session:
+        await db.refresh(existing_session)
+        # Determine existing_status based on current_state
+        if existing_session.current_state == "COMPLETED":
+            existing_status = "completed"
+        elif existing_session.current_state == "REFUSED":
+            existing_status = "refused"
+        else:
+            existing_status = "active"
+        return SessionResponse(
+            id=str(existing_session.id),
+            reservation_id=str(existing_session.reservation_id),
+            guest_id=str(existing_session.guest_id),
+            current_state=existing_session.current_state,
+            session_token=existing_session.session_token,
+            status=existing_session.status,
+            created_at=existing_session.created_at,
+            updated_at=existing_session.updated_at,
+            resumed=True,
+            existing_status=existing_status,
+        )
+
     # Find or create guest
     result = await db.execute(
         select(Guest).where(Guest.email == reservation.guest_email)
@@ -90,6 +120,9 @@ async def create_session(
     db.add(session)
     await db.flush()
 
+    # Refresh to load server-generated defaults (created_at, updated_at)
+    await db.refresh(session)
+
     return SessionResponse.model_validate(session)
 
 
@@ -113,6 +146,8 @@ async def get_session(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Session not found: {session_id}",
         )
+    # Refresh to ensure lazy-loaded attributes are available
+    await db.refresh(session)
     return SessionResponse.model_validate(session)
 
 
@@ -164,11 +199,9 @@ async def send_message(
     current_state = State(result["current_state"])
 
     if current_state == State.COMPLETED:
-        instructions = await _session_manager.get_arrival_instructions(
-            session_id, db
-        )
-        if instructions:
-            result["agent_content"] += f"\n\n{instructions}"
+        # instructions_html is already provided by session_manager
+        # — do NOT concatenate it into agent_content
+        pass
 
     elif current_state == State.ID_VERIFY_PENDING:
         upload_url = await _session_manager.get_id_upload_link(
@@ -207,11 +240,21 @@ async def send_message(
             detail="Failed to retrieve processed message.",
         )
 
+    # Refresh to ensure lazy-loaded attributes are available
+    await db.refresh(agent_msg)
+
+    # Update the persisted message with enriched content (links, instructions)
+    # so the response includes the full content with appended links
+    if agent_msg.content != result["agent_content"]:
+        agent_msg.content = result["agent_content"]
+        await db.flush()
+
     return AgentResponse(
         message=MessageResponse.model_validate(agent_msg),
         current_state=session.current_state,
         required_action=result["required_action"],
         session_status=session.status,
+        instructions_html=result.get("instructions_html"),
     )
 
 
@@ -242,6 +285,9 @@ async def get_messages(
         .order_by(Message.created_at.asc())
     )
     messages = result.scalars().all()
+    # Refresh each message to ensure lazy-loaded attributes are available
+    for m in messages:
+        await db.refresh(m)
     return [MessageResponse.model_validate(m) for m in messages]
 
 
@@ -253,9 +299,13 @@ async def get_messages(
 async def get_state(
     session_id: str,
     db: AsyncSession = Depends(get_db),
-    _api_key: APIKey = Depends(get_api_key),
+    _auth: APIKey | Session = Depends(get_api_key_or_session),
 ) -> SessionStateResponse:
-    """Return the current state and required action for a session."""
+    """Return the current state and required action for a session.
+
+    Supports both API key auth (X-API-Key header) and session token auth
+    (Authorization: Bearer <token> or ?token=<token> query param).
+    """
     sm = StateMachine(db_session=db, session_id=session_id)
     try:
         current_state, required_action = await sm.get_current_state()

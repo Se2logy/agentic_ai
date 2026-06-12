@@ -22,7 +22,10 @@ VALID_TRANSITIONS: dict[tuple[State, str], State] = {
     (State.RENTAL_AGREEMENT_PENDING, "agree"): State.INFO_VERIFY_PENDING,
     (State.RENTAL_AGREEMENT_PENDING, "decline"): State.REFUSED,
     # Info verification
-    (State.INFO_VERIFY_PENDING, "confirm"): State.ID_VERIFY_PENDING,
+    # "confirm" triggers OTP but stays in INFO_VERIFY_PENDING (guest must then enter OTP)
+    (State.INFO_VERIFY_PENDING, "confirm"): State.INFO_VERIFY_PENDING,
+    # "verify_otp" advances to ID_VERIFY_PENDING after successful OTP verification
+    (State.INFO_VERIFY_PENDING, "verify_otp"): State.ID_VERIFY_PENDING,
     # (provide_info stays in same state so guest can correct and then confirm)
     (State.INFO_VERIFY_PENDING, "provide_info"): State.INFO_VERIFY_PENDING,
     # ID verification

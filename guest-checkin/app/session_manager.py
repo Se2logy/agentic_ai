@@ -20,79 +20,85 @@ from app.agent.llm_client import OllamaClient
 from app.agent.tool_router import ToolRouter
 from app.config import settings
 from app.mcp_tools.registry import tool_registry
+from app.models.guest import Guest
 from app.models.message import Message
+from app.models.reservation import Reservation
 from app.models.session import Session
 from app.state_machine import InvalidTransitionError, StateMachine
 from app.state_machine.states import STATE_INFO, State
 from app.state_machine.transitions import can_transition, get_required_action
+from app.utils import agreement_type_for_state, answer_question
 
 logger = logging.getLogger(__name__)
 
 # ── Module-level helpers ────────────────────────────────────────────
 
 
-def _agreement_type_for_state(state: State) -> str | None:
-    """Return the agreement type string for a state that has one."""
+async def _fetch_reservation(
+    session: Session, db: AsyncSession
+) -> Reservation | None:
+    """Fetch the reservation for a session's guest."""
+    result = await db.execute(
+        select(Reservation).where(Reservation.id == session.reservation_id)
+    )
+    return result.scalar_one_or_none()
+
+
+async def _fetch_guest(
+    session: Session, db: AsyncSession
+) -> Guest | None:
+    """Fetch the guest for a session."""
+    result = await db.execute(
+        select(Guest).where(Guest.id == session.guest_id)
+    )
+    return result.scalar_one_or_none()
+
+
+async def _get_agreement_text(
+    session: Session, agreement_type: str, db: AsyncSession
+) -> str:
+    """Fetch the actual agreement text from the reservation."""
+    reservation = await _fetch_reservation(session, db)
+    if reservation is None:
+        return f"[{agreement_type.replace('_', ' ').title()} text — reservation data unavailable]"
+
     mapping = {
-        State.PRIVACY_POLICY_PENDING: "privacy_policy",
-        State.HOUSE_RULES_PENDING: "house_rules",
-        State.RENTAL_AGREEMENT_PENDING: "rental_agreement",
+        "privacy_policy": reservation.privacy_policy_text,
+        "house_rules": reservation.house_rules_text,
+        "rental_agreement": reservation.rental_agreement_text,
     }
-    return mapping.get(state)
-
-
-async def _answer_question(
-    session: Session,
-    question: str,
-    db: AsyncSession,
-) -> str | None:
-    """Try to answer a guest question from the knowledge base."""
-    from app.models.knowledge_base import KnowledgeBase
-
-    result = await db.execute(select(KnowledgeBase).limit(10))
-    entries = result.scalars().all()
-    if not entries:
-        return None
-
-    q_lower = question.lower()
-    for entry in entries:
-        if any(word in q_lower for word in entry.question.lower().split()):
-            return entry.answer
-
-    return None
-
-
-def _get_agreement_text(session: Session, agreement_type: str) -> str:
-    """Extract agreement text from the session's reservation."""
-    # Reservation may not be eagerly loaded in async context;
-    # return a placeholder.  The template in the on-enter content
-    # already includes enough context for the guest.
-    return f"[{agreement_type.replace('_', ' ').title()} text]"
+    text = mapping.get(agreement_type)
+    if text:
+        return text
+    return f"[{agreement_type.replace('_', ' ').title()} text not found]"
 
 
 # ── State-aware response templates ─────────────────────────────────
 
 _STATE_RESPONSES: dict[State, str] = {
     State.PRIVACY_POLICY_PENDING: (
-        "Please review our Privacy Policy and Data Usage agreement. "
-        "Do you agree?"
+        "Please review our Privacy Policy and Data Usage agreement below. "
+        "Reply 'agree' to accept or 'decline' to refuse."
     ),
     State.HOUSE_RULES_PENDING: (
-        "Here are the House Rules for this property. "
-        "Do you accept them?"
+        "Please review the House Rules below. "
+        "Reply 'agree' to accept or 'decline' to refuse."
     ),
     State.RENTAL_AGREEMENT_PENDING: (
-        "Please review and accept the Rental Agreement."
+        "Please review the Rental Agreement below. "
+        "Reply 'agree' to accept or 'decline' to refuse."
     ),
     State.INFO_VERIFY_PENDING: (
-        "Please verify your information. "
-        "We'll send an OTP to your email."
+        "Please verify your information below. "
+        "If everything is correct, reply 'confirm'. "
+        "If anything needs updating, tell me what to change. "
+        "After confirming, you'll receive a verification code via email."
     ),
     State.ID_VERIFY_PENDING: (
-        "Please upload your government-issued ID using this secure link."
+        "Please upload your government-issued ID using the secure link provided."
     ),
     State.INCIDENTAL_PROTECTION_PENDING: (
-        "Please select your incidental protection option."
+        "Please select your incidental protection option using the link provided."
     ),
     State.COMPLETED: (
         "Your check-in is complete! Here are your arrival instructions."
@@ -178,7 +184,7 @@ class SessionManager:
         )
 
         # 6. Advance state machine
-        agent_content, current_state = await self._advance_state(
+        agent_content, current_state, instructions_html = await self._advance_state(
             session, current_state, intent_detected,
             guest_message, db, tool_result,
         )
@@ -225,6 +231,7 @@ class SessionManager:
             "current_state": current_state.value,
             "required_action": required_action,
             "session_status": session.status,
+            "instructions_html": instructions_html,
         }
 
     # ── Internal steps ──────────────────────────────────────────────
@@ -359,13 +366,16 @@ class SessionManager:
         guest_message: str,
         db: AsyncSession,
         tool_result: dict | None,
-    ) -> tuple[str, State]:
+    ) -> tuple[str, State, str | None]:
         """Advance the state machine and generate a response.
 
-        Returns (agent_content, new_state).
+        Returns (agent_content, new_state, instructions_html).
+        instructions_html is populated only when transitioning into
+        COMPLETED state; it is None otherwise.
         """
         sm = StateMachine(db_session=db, session_id=session.id)
         agent_content = ""
+        instructions_html: str | None = None
 
         try:
             if intent == "decline" and can_transition(
@@ -373,42 +383,125 @@ class SessionManager:
             ):
                 # Agreement refusal recording handled by ToolRouter (record_agreement tool)
                 tools_called_decline: list[str] | None = None
-                if _agreement_type_for_state(current_state):
+                if agreement_type_for_state(current_state):
                     tools_called_decline = ["record_agreement"]
 
                 new_state = await sm.decline(
                     guest_response=guest_message
                 )
-                agent_content = _STATE_RESPONSES.get(
+                agent_content = await self._enrich_state_content(
+                    _STATE_RESPONSES.get(
+                        new_state,
+                        "Your check-in has been declined.",
+                    ),
                     new_state,
-                    "Your check-in has been declined.",
+                    session,
+                    db,
                 )
                 current_state = new_state
 
             elif intent and can_transition(current_state, intent):
-                # Agreement recording is handled by ToolRouter (record_agreement tool)
-                # No need to create Agreement records here — the tool already did it
+                # OTP verification gate: only advance if OTP was verified successfully
+                if intent == "verify_otp" and current_state == State.INFO_VERIFY_PENDING:
+                    if tool_result and tool_result.get("verified"):
+                        # OTP verified — advance to ID_VERIFY_PENDING
+                        new_state = await sm.advance(
+                            intent, guest_response=guest_message
+                        )
+                        current_state = new_state
+                        agent_content = await self._enrich_state_content(
+                            _STATE_RESPONSES.get(
+                                current_state,
+                                get_required_action(current_state),
+                            ),
+                            current_state,
+                            session,
+                            db,
+                        )
+                    else:
+                        # OTP verification failed — stay in INFO_VERIFY_PENDING
+                        error_msg = tool_result.get("error", "Invalid OTP code.") if tool_result else "OTP verification failed."
+                        attempts = tool_result.get("attempts_remaining", 0) if tool_result else 0
+                        if "Maximum attempts" in error_msg:
+                            agent_content = (
+                                f"Maximum OTP attempts exceeded. "
+                                f"Please say 'confirm' to receive a new OTP code."
+                            )
+                        elif "expired" in error_msg.lower():
+                            agent_content = (
+                                f"Your OTP has expired. "
+                                f"Please say 'confirm' to receive a new OTP code."
+                            )
+                        else:
+                            agent_content = (
+                                f"OTP verification failed: {error_msg} "
+                                f"You have {attempts} attempt(s) remaining. "
+                                f"Please try again or say 'confirm' for a new code."
+                            )
 
-                new_state = await sm.advance(
-                    intent, guest_response=guest_message
-                )
-                current_state = new_state
+                elif intent == "confirm" and current_state == State.INFO_VERIFY_PENDING:
+                    # "confirm" is now a self-transition — trigger OTP but stay
+                    new_state = await sm.advance(
+                        intent, guest_response=guest_message
+                    )
+                    current_state = new_state  # stays INFO_VERIFY_PENDING
+                    # Tell the guest that OTP was sent
+                    if tool_result and tool_result.get("otp_sent"):
+                        email = tool_result.get("email", "your email")
+                        agent_content = (
+                            f"Your information has been confirmed! "
+                            f"I've sent a 6-digit verification code to {email}. "
+                            f"Please enter the code to proceed."
+                        )
+                    elif tool_result and tool_result.get("error"):
+                        agent_content = (
+                            f"I confirmed your information, but there was an issue "
+                            f"sending the verification code: {tool_result['error']}. "
+                            f"Please try again."
+                        )
+                    else:
+                        agent_content = (
+                            "Your information has been confirmed! "
+                            "A verification code has been sent to your email. "
+                            "Please enter the 6-digit code to proceed."
+                        )
 
-                # Generate on-enter content for the new state
-                agent_content = _STATE_RESPONSES.get(
-                    current_state,
-                    get_required_action(current_state),
-                )
+                else:
+                    # Standard state transition
+                    new_state = await sm.advance(
+                        intent, guest_response=guest_message
+                    )
+                    current_state = new_state
+
+                    # Generate on-enter content for the new state
+                    agent_content = await self._enrich_state_content(
+                        _STATE_RESPONSES.get(
+                            current_state,
+                            get_required_action(current_state),
+                        ),
+                        current_state,
+                        session,
+                        db,
+                    )
+
+                    # When entering COMPLETED, fetch instructions separately
+                    if current_state == State.COMPLETED:
+                        instructions_html = await self.get_arrival_instructions(
+                            session.id, db
+                        )
             else:
                 # Intent doesn't match valid transition
                 required = get_required_action(current_state)
 
                 if intent in ("question", "request_help"):
-                    answer = await _answer_question(
+                    answer = await answer_question(
                         session, guest_message, db
                     )
                     if answer:
-                        agent_content = answer
+                        agent_content = (
+                            f"{answer}\n\n"
+                            f"To continue your check-in: {required}"
+                        )
                     else:
                         agent_content = (
                             f"I don't have specific information about "
@@ -416,12 +509,45 @@ class SessionManager:
                             f"check-in. {required}"
                         )
                 elif intent == "greeting":
-                    agent_content = (
-                        f"Hello! Welcome to your check-in process. "
-                        f"{required}"
-                    )
+                    if current_state == State.COMPLETED:
+                        instructions_html = await self.get_arrival_instructions(
+                            session.id, db
+                        )
+                        agent_content = (
+                            "Welcome back! Your check-in is complete. "
+                            "Here are your arrival instructions."
+                        )
+                    else:
+                        agent_content = (
+                            f"Hello! Welcome to your check-in process. "
+                            f"{required}"
+                        )
                 else:
-                    agent_content = required
+                    # No valid transition — check for COMPLETED state
+                    if current_state == State.COMPLETED:
+                        # Terminal state — guest may ask for instructions or other info
+                        if intent in ("question", "request_help"):
+                            answer = await answer_question(
+                                session, guest_message, db
+                            )
+                            if answer:
+                                agent_content = answer
+                            else:
+                                agent_content = (
+                                    "Your check-in is complete! "
+                                    "Is there anything else I can help you with?"
+                                )
+                        else:
+                            # Re-deliver arrival instructions as separate HTML
+                            instructions_html = await self.get_arrival_instructions(
+                                session.id, db
+                            )
+                            agent_content = (
+                                "Your check-in is complete! "
+                                "Here are your arrival instructions."
+                            )
+                    else:
+                        agent_content = required
 
         except InvalidTransitionError as exc:
             agent_content = (
@@ -430,7 +556,61 @@ class SessionManager:
             )
             logger.warning("Invalid transition attempt: %s", exc)
 
-        return agent_content, current_state
+        return agent_content, current_state, instructions_html
+
+    async def _enrich_state_content(
+        self,
+        template: str,
+        state: State,
+        session: Session,
+        db: AsyncSession,
+    ) -> str:
+        """Enrich the state template with actual data from the reservation.
+
+        For agreement states (PRIVACY_POLICY, HOUSE_RULES, RENTAL_AGREEMENT):
+          append the full agreement text from the reservation.
+
+        For INFO_VERIFY_PENDING:
+          append the guest's name, email, phone, and number of guests.
+
+        For other states: return the template as-is.
+        """
+        # Agreement states — append the full text
+        agreement_type = agreement_type_for_state(state)
+        if agreement_type:
+            text = await _get_agreement_text(session, agreement_type, db)
+            return f"{template}\n\n---\n\n{text}"
+
+        # Info verify — append guest details
+        if state == State.INFO_VERIFY_PENDING:
+            reservation = await _fetch_reservation(session, db)
+            guest = await _fetch_guest(session, db)
+            if reservation and guest:
+                info_lines = [
+                    f"**Name:** {guest.first_name} {guest.last_name}",
+                    f"**Email:** {guest.email or reservation.guest_email}",
+                    f"**Phone:** {guest.phone or reservation.guest_phone or 'Not provided'}",
+                    f"**Number of guests:** {reservation.num_guests}",
+                    f"**Property:** {reservation.property_name}",
+                    f"**Check-in:** {reservation.check_in_date}",
+                    f"**Check-out:** {reservation.check_out_date}",
+                ]
+                info_block = "\n".join(info_lines)
+                return f"{template}\n\n{info_block}"
+            elif reservation:
+                info_lines = [
+                    f"**Name:** {reservation.guest_name}",
+                    f"**Email:** {reservation.guest_email}",
+                    f"**Phone:** {reservation.guest_phone or 'Not provided'}",
+                    f"**Number of guests:** {reservation.num_guests}",
+                    f"**Property:** {reservation.property_name}",
+                    f"**Check-in:** {reservation.check_in_date}",
+                    f"**Check-out:** {reservation.check_out_date}",
+                ]
+                info_block = "\n".join(info_lines)
+                return f"{template}\n\n{info_block}"
+
+        return template
 
     def _enrich_response(
         self,

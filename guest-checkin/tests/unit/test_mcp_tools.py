@@ -2,6 +2,7 @@
 
 import uuid
 from datetime import date, datetime, timedelta, timezone
+from decimal import Decimal
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -307,7 +308,7 @@ class TestGenerateIdUploadLink:
         from app.mcp_tools.id_upload_tools import generate_id_upload_link
         r = await generate_id_upload_link(sd["db"], sd["sid"])
         assert "upload_url" in r
-        assert "/api/v1/id-upload?token=" in r["upload_url"]
+        assert "/api/v1/id-upload/" in r["upload_url"]
         assert "expires_in" in r
 
     @pytest.mark.asyncio
@@ -342,7 +343,7 @@ class TestGenerateIncidentalLink:
         from app.mcp_tools.incidental_tools import generate_incidental_link
         r = await generate_incidental_link(sd["db"], sd["sid"])
         assert "selection_url" in r
-        assert "/api/v1/incidental/select?token=" in r["selection_url"]
+        assert "/api/v1/incidental/" in r["selection_url"]
         assert len(r["options"]) == 2
         assert {o["type"] for o in r["options"]} == {"damage_waiver", "security_hold"}
 
@@ -354,7 +355,7 @@ class TestRecordIncidentalSelection:
         r = await record_incidental_selection(sd["db"], sd["sid"], "damage_waiver")
         assert r["selected"] is True
         assert r["selection_type"] == "damage_waiver"
-        assert r["amount"] == 49.0
+        assert r["amount"] == Decimal("49.00")
         assert r["payment"]["success"] is True
 
     @pytest.mark.asyncio
@@ -362,7 +363,7 @@ class TestRecordIncidentalSelection:
         from app.mcp_tools.incidental_tools import record_incidental_selection
         r = await record_incidental_selection(sd["db"], sd["sid"], "security_hold")
         assert r["selected"] is True
-        assert r["amount"] == 250.0
+        assert r["amount"] == Decimal("250.00")
 
     @pytest.mark.asyncio
     async def test_invalid_type(self, sd):
@@ -373,8 +374,8 @@ class TestRecordIncidentalSelection:
     @pytest.mark.asyncio
     async def test_custom_amount(self, sd):
         from app.mcp_tools.incidental_tools import record_incidental_selection
-        r = await record_incidental_selection(sd["db"], sd["sid"], "damage_waiver", 99.0)
-        assert r["amount"] == 99.0
+        r = await record_incidental_selection(sd["db"], sd["sid"], "damage_waiver", Decimal("99.00"))
+        assert r["amount"] == Decimal("99.00")
 
 
 # ── arrival_tools tests ─────────────────────────────────────────

@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.models.api_key import APIKey
+from app.models.session import Session
 
 
 def _hash_api_key(key: str) -> str:
@@ -56,3 +57,34 @@ async def get_api_key(
         )
 
     return api_key_obj
+
+
+async def get_api_key_or_session(
+    x_api_key: str = Header(None, alias="X-API-Key"),
+    authorization: str = Header(None, alias="Authorization"),
+    db: AsyncSession = Depends(get_db),
+) -> APIKey | Session:
+    """FastAPI dependency that accepts either X-API-Key or Bearer session token.
+
+    Tries API key first, then session token. Raises 401 if neither works.
+    """
+    # Try API key first
+    if x_api_key is not None:
+        api_key_obj = await verify_api_key(x_api_key, db)
+        if api_key_obj is not None:
+            return api_key_obj
+
+    # Try session token
+    if authorization is not None:
+        from app.auth.session_token import verify_session_token
+        parts = authorization.split(" ", 1)
+        if len(parts) == 2 and parts[0].lower() == "bearer":
+            token = parts[1].strip()
+            session = await verify_session_token(token, db)
+            if session is not None:
+                return session
+
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="X-API-Key header or Authorization Bearer token is required",
+    )

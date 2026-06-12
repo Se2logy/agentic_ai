@@ -1,9 +1,11 @@
 """Incidental protection selection endpoints — serve selection page and process payment."""
 
+import json
 import logging
+from decimal import Decimal
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import HTMLResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,9 +20,9 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["incidental"])
 
-# Damage waiver and security hold amounts
-DAMAGE_WAIVER_AMOUNT = 49.99
-SECURITY_HOLD_AMOUNT = 250.00
+# Damage waiver and security hold amounts (Decimal avoids floating-point precision loss)
+DAMAGE_WAIVER_AMOUNT = Decimal("49.00")
+SECURITY_HOLD_AMOUNT = Decimal("250.00")
 
 _TEMPLATE_DIR = Path(__file__).resolve().parent.parent / "templates"
 
@@ -32,6 +34,7 @@ _TEMPLATE_DIR = Path(__file__).resolve().parent.parent / "templates"
 )
 async def get_incidental_page(
     token: str,
+    return_url: str | None = Query(default=None),
 ) -> HTMLResponse:
     """Render the incidental protection selection page for a secure link token."""
     payload = link_service.verify_link(token)
@@ -41,7 +44,10 @@ async def get_incidental_page(
             detail="Invalid or expired selection link",
         )
 
-    html_content = _build_selection_page(token)
+    # Token-embedded return_url takes precedence over query param
+    effective_return_url = payload.get("return_url") or return_url
+
+    html_content = _build_selection_page(token, return_url=effective_return_url)
     return HTMLResponse(content=html_content)
 
 
@@ -112,6 +118,38 @@ async def select_incidental(
             message=f"Payment failed: {payment_result.message}",
         )
 
+    # Advance state machine: INCIDENTAL_PROTECTION_PENDING → COMPLETED
+    try:
+        from app.state_machine import StateMachine
+        from app.state_machine.states import State
+
+        current_state = State(session.current_state)
+        if current_state == State.INCIDENTAL_PROTECTION_PENDING:
+            sm = StateMachine(db_session=db, session_id=session.id)
+            await sm.advance("select_option", guest_response=f"Incidental selected: {body.selection_type}")
+            await db.flush()
+            logger.info(
+                "State advanced after incidental payment: session=%s", session_id
+            )
+            # Push WS state_update so the chat widget reflects the new state
+            try:
+                new_state, required_action = await sm.get_current_state()
+                from app.api.websocket import manager as ws_manager
+                await ws_manager.send_state_update(
+                    str(session.id),
+                    {
+                        "current_state": new_state.value,
+                        "required_action": required_action,
+                        "message": "Incidental protection selection completed",
+                    },
+                )
+            except Exception as exc:
+                logger.warning("Could not push WS state update after incidental: %s", exc)
+    except Exception as exc:
+        logger.warning(
+            "Could not advance state after incidental payment: %s", exc
+        )
+
     logger.info("Incidental selection for session %s: %s", session_id, body.selection_type)
 
     return IncidentalSelectResponse(
@@ -119,18 +157,20 @@ async def select_incidental(
         amount=amount,
         payment_status="completed",
         payment_reference=payment_result.transaction_id,
-        message=f"Payment of ${amount} processed successfully. {payment_result.message}",
+        message=f"Payment of ${amount:.2f} processed successfully. {payment_result.message}",
     )
 
 
-def _build_selection_page(token: str) -> str:
+def _build_selection_page(token: str, return_url: str | None = None) -> str:
     """Build the HTML selection page for incidental protection."""
+    return_url_js = f'var returnUrl = {json.dumps(return_url)};' if return_url else 'var returnUrl = null;'
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Select Incidental Protection</title>
+  <script>{return_url_js}</script>
   <style>
     body {{ font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #f4f5f7; margin: 0; padding: 0; }}
     .container {{ max-width: 520px; margin: 40px auto; background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }}
@@ -157,7 +197,7 @@ def _build_selection_page(token: str) -> str:
     <div class="body" id="selectionForm">
       <p>Please select your preferred incidental protection option:</p>
       <div class="option" id="damageWaiver" onclick="selectOption('damage_waiver')">
-        <h3>Damage Waiver</h3><div class="price">$49.99</div>
+        <h3>Damage Waiver</h3><div class="price">$49.00</div>
         <p>Covers accidental damages during your stay. Non-refundable.</p>
       </div>
       <div class="option" id="securityHold" onclick="selectOption('security_hold')">
@@ -189,7 +229,7 @@ def _build_selection_page(token: str) -> str:
       .then(result => {{
         document.getElementById('selectionForm').style.display = 'none';
         const rd = document.getElementById('result'); rd.style.display = 'block';
-        if (result.ok) {{ rd.className = 'result success'; rd.innerHTML = '<h2>Payment Successful!</h2><p>' + result.data.message + '</p>'; }}
+        if (result.ok) {{ rd.className = 'result success'; rd.innerHTML = '<h2>✓ Payment Successful!</h2><p>' + result.data.message + '</p><p style="margin-top:12px;font-size:14px;color:#5f6368;">Returning to check-in chat...</p>'; setTimeout(function() {{ if (returnUrl) {{ window.location.href = returnUrl; }} else if (window.opener) {{ window.close(); }} else {{ window.history.back(); }} }}, 2000); }}
         else {{ rd.className = 'result error'; rd.innerHTML = '<h2>Payment Failed</h2><p>' + (result.data.detail||result.data.message||'Error') + '</p>'; }}
       }})
       .catch(err => {{

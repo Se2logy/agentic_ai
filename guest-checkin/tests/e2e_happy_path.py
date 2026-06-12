@@ -135,7 +135,8 @@ async def main() -> None:
         ("Yes, I agree to the privacy policy", "agree", "HOUSE_RULES_PENDING"),
         ("I accept the house rules", "agree", "RENTAL_AGREEMENT_PENDING"),
         ("I accept the rental agreement", "agree", "INFO_VERIFY_PENDING"),
-        ("I confirm my information is correct", "confirm", "ID_VERIFY_PENDING"),
+        ("I confirm my information is correct", "confirm", "INFO_VERIFY_PENDING"),  # triggers OTP, stays
+        ("123456", "verify_otp", "ID_VERIFY_PENDING"),  # OTP code → advance to ID
         ("I have uploaded my ID", "upload_id", "INCIDENTAL_PROTECTION_PENDING"),
         ("I select the damage waiver option", "select_option", "COMPLETED"),
     ]

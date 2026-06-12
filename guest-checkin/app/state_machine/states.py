@@ -46,10 +46,10 @@ STATE_INFO: dict[State, dict[str, str | list[str]]] = {
         "description": "Guest must review and respond to the rental agreement.",
     },
     State.INFO_VERIFY_PENDING: {
-        "required_action": "Confirm personal information (name, email, phone, number of guests)",
-        "valid_intents": ["confirm", "provide_info"],
+        "required_action": "Confirm personal information and verify your email with an OTP code (name, email, phone, number of guests)",
+        "valid_intents": ["confirm", "provide_info", "verify_otp"],
         "on_enter": "Agent retrieves and presents reservation information for verification",
-        "description": "Guest must verify or correct their personal information.",
+        "description": "Guest must verify or correct their personal information, then confirm to receive an OTP code, and submit the OTP to proceed.",
     },
     State.ID_VERIFY_PENDING: {
         "required_action": "Upload government-issued ID via the secure link",

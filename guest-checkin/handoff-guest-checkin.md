@@ -92,3 +92,71 @@ GuestCheckInWidget.init({ sessionId, token, wsUrl, apiUrl, theme });
 
 - Named `GuestCheckInWidget` (not `GuestCheckIn`) for clarity per task spec.
 - Demo page uses `X-API-Key: demo-key` — production needs server-side proxy.
+
+---
+
+# Handoff Addendum — TASK-004-003: Refactor OTP API to delegate to otp_tools
+
+## Task
+Refactor app/api/otp.py to become a thin HTTP wrapper around app/mcp_tools/otp_tools.py, eliminating duplication and ensuring security logic has a single source of truth.
+
+## Files Changed
+
+| File | Change |
+|------|--------|
+| `app/api/otp.py` | Refactored — removed direct OTPVerification model usage, delegated to otp_tools |
+| `tests/unit/test_api_otp.py` | **New** — 11 tests for API delegation and HTTP error mapping |
+
+## What Changed in app/api/otp.py
+
+**Before:** Duplicated OTP generation and verification logic. Used `OTPVerification` model directly, had direct SQLAlchemy queries, performed `hmac.compare_digest` inline, imported `random`, `string`, `datetime`, `select`, etc.
+
+**After:** Thin HTTP wrapper that delegates to `otp_tools.trigger_otp()` and `otp_tools.verify_otp()`. Only retains HTTP-specific concerns:
+- Auth via `Depends(get_session)`
+- Request/response models (`OTPVerifyRequest`, `OTPVerifyResponse`)
+- Error handling: maps MCP tool `"error"` results to `HTTPException(404)`
+- `_build_verify_message()` helper maps MCP tool result dicts to OTPVerifyResponse
+
+**Removed imports:** `hmac`, `secrets`, `string`, `datetime`/`timedelta`/`timezone`, `sqlalchemy.select`, `app.models.otp_verification.OTPVerification`, `app.services.email_service.email_service`
+
+## Security Impact
+- OTP logic now has a single source of truth (otp_tools.py) — any future fix applies to both API and MCP paths
+- API now returns masked emails (from otp_tools) instead of raw emails, reducing PII exposure
+
+## API Contract Changes
+- `POST /otp/trigger` response shape changed:
+  - Old: `{"message": "OTP sent", "email": "raw@email.com", "expires_at": "2024-07-01T..."}`
+  - New: `{"otp_sent": true, "email": "r***@email.com", "expires_in": "10 minutes"}`
+- `POST /otp/verify` response shape unchanged (same `OTPVerifyResponse`)
+
+## Deviations from Plan
+None — all 5 requirements implemented exactly.
+
+## Tests
+- 11 new tests in `tests/unit/test_api_otp.py` (all passing)
+- Total suite: 231 tests passing
+
+---
+
+# Handoff Addendum — TASK-004-003 (fix): Incidental redirect + WS state_update
+
+## Task
+Fix incidental page redirect with return_url + push WS state_update after selection.
+
+## Files Changed
+
+| File | Change |
+|------|--------|
+| `app/api/incidental.py` | Success handler JS: checks `returnUrl` first, then `window.opener`, then `history.back()`. Added WS `state_update` push after `sm.advance()`. |
+| `app/api/websocket.py` | Deduplicated `send_state_update()` — kept version with docstring and `logger.warning`, removed bare duplicate. |
+
+## API Contract
+- `POST /api/v1/incidental/{token}` — after state advance, pushes `state_update` WS message: `{"type": "state_update", "current_state": "...", "required_action": "...", "message": "Incidental protection selection completed"}`
+
+## Deviations
+- Task spec said `active_connections` is `dict[str, list[WebSocket]]` but actual code uses `dict[str, WebSocket]`. Adapted `send_state_update()` to send to single ws.
+- Removed duplicate `send_state_update()` I initially added — TASK-004-002 had already added one.
+
+## Tests
+- 59 websocket + state_machine tests pass
+- py_compile passes on both changed files

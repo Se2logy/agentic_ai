@@ -107,7 +107,8 @@ async def _advance_full_flow(sm: StateMachine) -> State:
     await sm.advance("agree")  # PRIVACY → HOUSE_RULES
     await sm.advance("agree")  # HOUSE_RULES → RENTAL
     await sm.advance("agree")  # RENTAL → INFO_VERIFY
-    await sm.advance("confirm")  # INFO_VERIFY → ID_VERIFY
+    await sm.advance("confirm")  # INFO_VERIFY → INFO_VERIFY (triggers OTP, stays)
+    await sm.advance("verify_otp")  # INFO_VERIFY → ID_VERIFY (after OTP verified)
     await sm.advance("upload_id")  # ID_VERIFY → INCIDENTAL
     return await sm.advance("select_option")  # INCIDENTAL → COMPLETED
 
@@ -215,6 +216,14 @@ class TestTransitions:
 
     def test_provide_info_stays_in_info_verify(self):
         assert get_next_state(State.INFO_VERIFY_PENDING, "provide_info") == State.INFO_VERIFY_PENDING
+
+    def test_confirm_stays_in_info_verify(self):
+        """After confirming info, guest stays in INFO_VERIFY_PENDING to enter OTP."""
+        assert get_next_state(State.INFO_VERIFY_PENDING, "confirm") == State.INFO_VERIFY_PENDING
+
+    def test_verify_otp_advances_to_id_verify(self):
+        """After OTP verification, guest advances to ID_VERIFY_PENDING."""
+        assert get_next_state(State.INFO_VERIFY_PENDING, "verify_otp") == State.ID_VERIFY_PENDING
 
     def test_all_transition_keys_use_state_enum(self):
         for from_state, intent in VALID_TRANSITIONS:
@@ -506,7 +515,7 @@ class TestAuditTrail:
             select(AuditTrail).where(AuditTrail.session_id == session.id)
         )
         entries = result.scalars().all()
-        assert len(entries) == 7
+        assert len(entries) == 8
 
         state_chain = [(e.from_state, e.to_state) for e in entries]
         expected_chain = [
@@ -514,7 +523,8 @@ class TestAuditTrail:
             ("PRIVACY_POLICY_PENDING", "HOUSE_RULES_PENDING"),
             ("HOUSE_RULES_PENDING", "RENTAL_AGREEMENT_PENDING"),
             ("RENTAL_AGREEMENT_PENDING", "INFO_VERIFY_PENDING"),
-            ("INFO_VERIFY_PENDING", "ID_VERIFY_PENDING"),
+            ("INFO_VERIFY_PENDING", "INFO_VERIFY_PENDING"),  # confirm (triggers OTP)
+            ("INFO_VERIFY_PENDING", "ID_VERIFY_PENDING"),  # verify_otp
             ("ID_VERIFY_PENDING", "INCIDENTAL_PROTECTION_PENDING"),
             ("INCIDENTAL_PROTECTION_PENDING", "COMPLETED"),
         ]

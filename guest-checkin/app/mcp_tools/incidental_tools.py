@@ -1,6 +1,7 @@
 """MCP tools: generate incidental link and record incidental selection."""
 
 import logging
+from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import select
@@ -16,7 +17,7 @@ logger = logging.getLogger(__name__)
 INCIDENTAL_OPTIONS = [
     {
         "type": "damage_waiver",
-        "amount": 49.00,
+        "amount": Decimal("49.00"),
         "description": (
             "Damage Waiver — covers up to $500 in accidental "
             "damages during your stay."
@@ -24,7 +25,7 @@ INCIDENTAL_OPTIONS = [
     },
     {
         "type": "security_hold",
-        "amount": 250.00,
+        "amount": Decimal("250.00"),
         "description": (
             "Security Hold — $250 hold on your card, refunded "
             "within 7 days after check-out if no damage."
@@ -49,19 +50,26 @@ GENERATE_TOOL_PARAMETERS = {
             "type": "string",
             "description": "The current check-in session ID.",
         },
+        "return_url": {
+            "type": "string",
+            "description": "Optional URL to redirect the guest back to after completing the incidental selection.",
+        },
     },
     "required": ["session_id"],
 }
 
 
 async def generate_incidental_link(
-    db_session: AsyncSession, session_id: str
+    db_session: AsyncSession,
+    session_id: str,
+    return_url: str | None = None,
 ) -> dict[str, Any]:
     """Generate a secure link for incidental protection selection.
 
     Args:
         db_session: Async database session.
         session_id: The check-in session ID.
+        return_url: Optional URL to redirect back to after selection.
 
     Returns:
         Dict with selection_url and options, or error.
@@ -77,8 +85,10 @@ async def generate_incidental_link(
     if session is None:
         return {"error": f"Session not found: {session_id}"}
 
-    token = link_service.generate_incidental_link(session_id)
-    selection_url = f"/api/v1/incidental/select?token={token}"
+    token = link_service.generate_incidental_link(
+        session_id, return_url=return_url
+    )
+    selection_url = f"/api/v1/incidental/{token}"
 
     logger.info("Incidental link generated: session=%s", session_id)
 
@@ -126,7 +136,7 @@ async def record_incidental_selection(
     db_session: AsyncSession,
     session_id: str,
     selection_type: str,
-    amount: float | None = None,
+    amount: Decimal | None = None,
 ) -> dict[str, Any]:
     """Record guest's incidental protection choice and process payment.
 

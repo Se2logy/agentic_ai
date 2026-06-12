@@ -12,7 +12,14 @@ _ASYNC_DB_URL = settings.DATABASE_URL.replace(
     "mysql+pymysql://", "mysql+aiomysql://", 1
 )
 
-engine = create_async_engine(_ASYNC_DB_URL, pool_pre_ping=True, echo=False)
+engine = create_async_engine(
+    _ASYNC_DB_URL,
+    pool_size=20,
+    max_overflow=30,
+    pool_timeout=30,
+    pool_pre_ping=True,
+    echo=False,
+)
 
 async_session_factory = async_sessionmaker(
     engine,

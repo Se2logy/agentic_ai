@@ -199,7 +199,12 @@ async def verify_otp(
     otp_record.attempts += 1
     attempts_remaining = otp_record.max_attempts - otp_record.attempts
 
-    if otp_record.attempts > otp_record.max_attempts:
+    # Check code match FIRST (constant-time comparison to prevent timing attacks)
+    # This MUST happen before the max-attempts check so that all code paths
+    # take the same time — no timing side-channel from early lockout return.
+    code_matches = hmac.compare_digest(otp_record.otp_code, otp_code)
+
+    if otp_record.attempts >= otp_record.max_attempts:
         await db_session.flush()
         return {
             "verified": False,
@@ -207,8 +212,7 @@ async def verify_otp(
             "attempts_remaining": 0,
         }
 
-    # Check code match (constant-time comparison to prevent timing attacks)
-    if not hmac.compare_digest(otp_record.otp_code, otp_code):
+    if not code_matches:
         await db_session.flush()
         return {
             "verified": False,

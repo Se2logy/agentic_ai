@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.session import Session
 from app.state_machine.states import STATE_INFO, State
+from app.utils import agreement_type_for_state, answer_question
 
 
 class FallbackAgent:
@@ -24,8 +25,9 @@ class FallbackAgent:
     # request_help MUST come before question so "I need help" wins over "can I".
     _INTENT_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
         ("decline", re.compile(
-            r"\b(don'?t\s+agree|don'?t\s+accept|i\s+decline|i\s+refuse|"
-            r"decline|disagree|reject|refuse|nope|no)\b",
+            r"\b(no|nope|decline(?:d|s)?|refuse(?:d|s)?|reject(?:ed|s)?|"
+            r"disagree(?:d|s)?|do\s+not\s+agree|don'?t\s+agree|"
+            r"i\s+decline|i\s+refuse|no\s+thanks|nah)\b",
             re.IGNORECASE,
         )),
         ("request_help", re.compile(
@@ -46,7 +48,9 @@ class FallbackAgent:
             re.IGNORECASE,
         )),
         ("agree", re.compile(
-            r"\b(yes|yeah|yep|agree|accept|okay|ok|sure|i\s+do|i\s+accept|i\s+agree|correct|confirmed)\b",
+            r"\b(yes|yeah|yep|agree(?:d|s|ment)?|accept(?:ed|s)?|"
+            r"acknowledged?|okay|ok|sure|i\s+do|i\s+accept(?:ed)?|"
+            r"i\s+agree(?:d)?|correct|confirmed)\b",
             re.IGNORECASE,
         )),
         ("greeting", re.compile(
@@ -88,6 +92,13 @@ class FallbackAgent:
                 message, re.IGNORECASE,
             ):
                 return "confirm"
+            # Detect 6-digit OTP code (e.g., "123456", "my code is 456789")
+            otp_match = re.search(
+                r"\b(\d{6})\b",
+                message,
+            )
+            if otp_match:
+                return "verify_otp"
 
         if state == State.ID_VERIFY_PENDING:
             if re.search(
@@ -169,13 +180,17 @@ class FallbackAgent:
             "other": "Welcome! Please say 'start' to begin the check-in process.",
         },
         State.INFO_VERIFY_PENDING: {
-            "agree": (
-                "Great, your information has been confirmed! Let's move on to "
-                "ID verification. I'll generate a secure upload link for you."
+            "confirm": (
+                "Your information has been confirmed! I've sent a 6-digit "
+                "verification code to your email. Please enter the code to proceed."
             ),
             "provide_info": (
                 "Thank you for providing your updated information. I've noted "
                 "the changes. Please confirm when the details are correct."
+            ),
+            "verify_otp": (
+                "OTP verified successfully! Let's move on to ID verification. "
+                "I'll generate a secure upload link for you."
             ),
             "question": (
                 "I'd be happy to help with your question. Could you please "
@@ -201,7 +216,7 @@ class FallbackAgent:
             ),
             "question": (
                 "You have two options for incidental protection:\n"
-                "1. Damage Waiver ($49) — covers up to $500 in accidental "
+                "1. Damage Waiver ($49.00) — covers up to $500 in accidental "
                 "damages.\n"
                 "2. Security Hold ($250) — held on your card and refunded "
                 "within 7 days if no damage occurs.\n"
@@ -297,7 +312,7 @@ class FallbackAgent:
 
         try:
             if intent == "decline" and can_transition(current_state, "decline"):
-                agreement_type = _agreement_type_for_state(current_state)
+                agreement_type = agreement_type_for_state(current_state)
                 if agreement_type:
                     from app.models.agreement import Agreement
 
@@ -316,7 +331,7 @@ class FallbackAgent:
                 current_state = new_state
 
             elif intent and can_transition(current_state, intent):
-                agreement_type = _agreement_type_for_state(current_state)
+                agreement_type = agreement_type_for_state(current_state)
                 if agreement_type and intent == "agree":
                     from app.models.agreement import Agreement
 
@@ -339,7 +354,7 @@ class FallbackAgent:
                 required = get_required_action(current_state)
 
                 if intent in ("question", "request_help"):
-                    answer = await _answer_question(session, guest_content, db)
+                    answer = await answer_question(session, guest_content, db)
                     if answer:
                         agent_content = answer
                     else:
@@ -374,38 +389,3 @@ class FallbackAgent:
             return f"{template}\n\nNote: There was an issue — {tool_result['error']}."
         return template
 
-
-# ── Module-level helpers ────────────────────────────────────────────
-
-
-def _agreement_type_for_state(state: State) -> str | None:
-    """Return the agreement type string for a state that has one."""
-    mapping = {
-        State.PRIVACY_POLICY_PENDING: "privacy_policy",
-        State.HOUSE_RULES_PENDING: "house_rules",
-        State.RENTAL_AGREEMENT_PENDING: "rental_agreement",
-    }
-    return mapping.get(state)
-
-
-async def _answer_question(
-    session: Session,
-    question: str,
-    db: AsyncSession,
-) -> str | None:
-    """Try to answer a guest question from the knowledge base."""
-    from sqlalchemy import select
-
-    from app.models.knowledge_base import KnowledgeBase
-
-    result = await db.execute(select(KnowledgeBase).limit(10))
-    entries = result.scalars().all()
-    if not entries:
-        return None
-
-    q_lower = question.lower()
-    for entry in entries:
-        if any(word in q_lower for word in entry.question.lower().split()):
-            return entry.answer
-
-    return None
