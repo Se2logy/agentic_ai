@@ -147,17 +147,6 @@ class ConnectionManager:
         """Check whether a session currently has an active WS."""
         return session_id in self.active_connections
 
-    async def send_state_update(self, session_id: str, data: dict) -> None:
-        """Push a state_update message to the WebSocket connection for a session."""
-        ws = self.active_connections.get(session_id)
-        if ws is None:
-            return
-        message = json.dumps({"type": "state_update", **data})
-        try:
-            await ws.send_text(message)
-        except Exception:
-            pass
-
 
 # Singleton instance
 manager = ConnectionManager()
