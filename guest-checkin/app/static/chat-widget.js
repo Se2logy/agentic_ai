@@ -138,6 +138,14 @@
         self._handleSend();
       }
     });
+
+    // Sync state when user returns to the chat tab (e.g. after
+    // completing ID upload or incidental payment in another tab)
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'visible') {
+        self._syncState();
+      }
+    });
   };
 
   /* ── WebSocket ─────────────────────────────────────────────────── */
