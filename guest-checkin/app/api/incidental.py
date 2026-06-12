@@ -1,10 +1,11 @@
 """Incidental protection selection endpoints — serve selection page and process payment."""
 
+import json
 import logging
 from decimal import Decimal
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import HTMLResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -33,6 +34,7 @@ _TEMPLATE_DIR = Path(__file__).resolve().parent.parent / "templates"
 )
 async def get_incidental_page(
     token: str,
+    return_url: str | None = Query(default=None),
 ) -> HTMLResponse:
     """Render the incidental protection selection page for a secure link token."""
     payload = link_service.verify_link(token)
@@ -42,7 +44,10 @@ async def get_incidental_page(
             detail="Invalid or expired selection link",
         )
 
-    html_content = _build_selection_page(token)
+    # Token-embedded return_url takes precedence over query param
+    effective_return_url = payload.get("return_url") or return_url
+
+    html_content = _build_selection_page(token, return_url=effective_return_url)
     return HTMLResponse(content=html_content)
 
 
@@ -126,6 +131,20 @@ async def select_incidental(
             logger.info(
                 "State advanced after incidental payment: session=%s", session_id
             )
+            # Push WS state_update so the chat widget reflects the new state
+            try:
+                new_state, required_action = await sm.get_current_state()
+                from app.api.websocket import manager as ws_manager
+                await ws_manager.send_state_update(
+                    str(session.id),
+                    {
+                        "current_state": new_state.value,
+                        "required_action": required_action,
+                        "message": "Incidental protection selection completed",
+                    },
+                )
+            except Exception as exc:
+                logger.warning("Could not push WS state update after incidental: %s", exc)
     except Exception as exc:
         logger.warning(
             "Could not advance state after incidental payment: %s", exc
@@ -142,14 +161,16 @@ async def select_incidental(
     )
 
 
-def _build_selection_page(token: str) -> str:
+def _build_selection_page(token: str, return_url: str | None = None) -> str:
     """Build the HTML selection page for incidental protection."""
+    return_url_js = f'var returnUrl = {json.dumps(return_url)};' if return_url else 'var returnUrl = null;'
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Select Incidental Protection</title>
+  <script>{return_url_js}</script>
   <style>
     body {{ font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #f4f5f7; margin: 0; padding: 0; }}
     .container {{ max-width: 520px; margin: 40px auto; background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }}
@@ -208,7 +229,7 @@ def _build_selection_page(token: str) -> str:
       .then(result => {{
         document.getElementById('selectionForm').style.display = 'none';
         const rd = document.getElementById('result'); rd.style.display = 'block';
-        if (result.ok) {{ rd.className = 'result success'; rd.innerHTML = '<h2>✓ Payment Successful!</h2><p>' + result.data.message + '</p><p style="margin-top:12px;font-size:14px;color:#5f6368;">Returning to check-in chat...</p>'; setTimeout(function() {{ if (window.opener) {{ window.close(); }} else {{ window.history.back(); }} }}, 2000); }}
+        if (result.ok) {{ rd.className = 'result success'; rd.innerHTML = '<h2>✓ Payment Successful!</h2><p>' + result.data.message + '</p><p style="margin-top:12px;font-size:14px;color:#5f6368;">Returning to check-in chat...</p>'; setTimeout(function() {{ if (returnUrl) {{ window.location.href = returnUrl; }} else if (window.opener) {{ window.close(); }} else {{ window.history.back(); }} }}, 2000); }}
         else {{ rd.className = 'result error'; rd.innerHTML = '<h2>Payment Failed</h2><p>' + (result.data.detail||result.data.message||'Error') + '</p>'; }}
       }})
       .catch(err => {{

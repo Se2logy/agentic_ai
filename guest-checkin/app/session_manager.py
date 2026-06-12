@@ -184,7 +184,7 @@ class SessionManager:
         )
 
         # 6. Advance state machine
-        agent_content, current_state = await self._advance_state(
+        agent_content, current_state, instructions_html = await self._advance_state(
             session, current_state, intent_detected,
             guest_message, db, tool_result,
         )
@@ -231,6 +231,7 @@ class SessionManager:
             "current_state": current_state.value,
             "required_action": required_action,
             "session_status": session.status,
+            "instructions_html": instructions_html,
         }
 
     # ── Internal steps ──────────────────────────────────────────────
@@ -365,13 +366,16 @@ class SessionManager:
         guest_message: str,
         db: AsyncSession,
         tool_result: dict | None,
-    ) -> tuple[str, State]:
+    ) -> tuple[str, State, str | None]:
         """Advance the state machine and generate a response.
 
-        Returns (agent_content, new_state).
+        Returns (agent_content, new_state, instructions_html).
+        instructions_html is populated only when transitioning into
+        COMPLETED state; it is None otherwise.
         """
         sm = StateMachine(db_session=db, session_id=session.id)
         agent_content = ""
+        instructions_html: str | None = None
 
         try:
             if intent == "decline" and can_transition(
@@ -479,6 +483,12 @@ class SessionManager:
                         session,
                         db,
                     )
+
+                    # When entering COMPLETED, fetch instructions separately
+                    if current_state == State.COMPLETED:
+                        instructions_html = await self.get_arrival_instructions(
+                            session.id, db
+                        )
             else:
                 # Intent doesn't match valid transition
                 required = get_required_action(current_state)
@@ -500,20 +510,13 @@ class SessionManager:
                         )
                 elif intent == "greeting":
                     if current_state == State.COMPLETED:
-                        instructions = await self.get_arrival_instructions(
+                        instructions_html = await self.get_arrival_instructions(
                             session.id, db
                         )
-                        if instructions:
-                            agent_content = (
-                                "Welcome back! Your check-in is complete. "
-                                "Here are your arrival instructions:\n\n"
-                                f"{instructions}"
-                            )
-                        else:
-                            agent_content = (
-                                "Welcome back! Your check-in is complete. "
-                                "Is there anything else I can help you with?"
-                            )
+                        agent_content = (
+                            "Welcome back! Your check-in is complete. "
+                            "Here are your arrival instructions."
+                        )
                     else:
                         agent_content = (
                             f"Hello! Welcome to your check-in process. "
@@ -535,20 +538,14 @@ class SessionManager:
                                     "Is there anything else I can help you with?"
                                 )
                         else:
-                            # Re-deliver arrival instructions
-                            instructions = await self.get_arrival_instructions(
+                            # Re-deliver arrival instructions as separate HTML
+                            instructions_html = await self.get_arrival_instructions(
                                 session.id, db
                             )
-                            if instructions:
-                                agent_content = (
-                                    "Your check-in is complete! Here are your arrival instructions:\n\n"
-                                    f"{instructions}"
-                                )
-                            else:
-                                agent_content = (
-                                    "Your check-in is complete! "
-                                    "Is there anything else I can help you with?"
-                                )
+                            agent_content = (
+                                "Your check-in is complete! "
+                                "Here are your arrival instructions."
+                            )
                     else:
                         agent_content = required
 
@@ -559,7 +556,7 @@ class SessionManager:
             )
             logger.warning("Invalid transition attempt: %s", exc)
 
-        return agent_content, current_state
+        return agent_content, current_state, instructions_html
 
     async def _enrich_state_content(
         self,

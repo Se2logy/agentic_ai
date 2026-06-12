@@ -27,6 +27,8 @@ class SessionResponse(BaseModel):
     status: str
     created_at: datetime | None = None
     updated_at: datetime | None = None
+    resumed: bool = False
+    existing_status: str | None = None
 
     model_config = {"from_attributes": True}
 

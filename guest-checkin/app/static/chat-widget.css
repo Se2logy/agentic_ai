@@ -434,6 +434,25 @@
 }
 
 /* ── FAB (Floating Action Button) ─────────────────────────────────── */
+
+/* ── Arrival Instructions Block ───────────────────────────────────── */
+.gci-instructions {
+  margin-top: 12px;
+  padding: 12px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+  max-height: 400px;
+  overflow-y: auto;
+}
+.gci-instructions table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.gci-instructions td, .gci-instructions th {
+  padding: 4px 8px;
+  border-bottom: 1px solid #eee;
+}
 .gci-fab {
   position: fixed;
   bottom: 24px;

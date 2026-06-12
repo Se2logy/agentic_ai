@@ -308,7 +308,7 @@ class TestGenerateIdUploadLink:
         from app.mcp_tools.id_upload_tools import generate_id_upload_link
         r = await generate_id_upload_link(sd["db"], sd["sid"])
         assert "upload_url" in r
-        assert "/api/v1/id-upload?token=" in r["upload_url"]
+        assert "/api/v1/id-upload/" in r["upload_url"]
         assert "expires_in" in r
 
     @pytest.mark.asyncio
@@ -343,7 +343,7 @@ class TestGenerateIncidentalLink:
         from app.mcp_tools.incidental_tools import generate_incidental_link
         r = await generate_incidental_link(sd["db"], sd["sid"])
         assert "selection_url" in r
-        assert "/api/v1/incidental/select?token=" in r["selection_url"]
+        assert "/api/v1/incidental/" in r["selection_url"]
         assert len(r["options"]) == 2
         assert {o["type"] for o in r["options"]} == {"damage_waiver", "security_hold"}
 

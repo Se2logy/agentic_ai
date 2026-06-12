@@ -135,3 +135,28 @@ None — all 5 requirements implemented exactly.
 ## Tests
 - 11 new tests in `tests/unit/test_api_otp.py` (all passing)
 - Total suite: 231 tests passing
+
+---
+
+# Handoff Addendum — TASK-004-003 (fix): Incidental redirect + WS state_update
+
+## Task
+Fix incidental page redirect with return_url + push WS state_update after selection.
+
+## Files Changed
+
+| File | Change |
+|------|--------|
+| `app/api/incidental.py` | Success handler JS: checks `returnUrl` first, then `window.opener`, then `history.back()`. Added WS `state_update` push after `sm.advance()`. |
+| `app/api/websocket.py` | Deduplicated `send_state_update()` — kept version with docstring and `logger.warning`, removed bare duplicate. |
+
+## API Contract
+- `POST /api/v1/incidental/{token}` — after state advance, pushes `state_update` WS message: `{"type": "state_update", "current_state": "...", "required_action": "...", "message": "Incidental protection selection completed"}`
+
+## Deviations
+- Task spec said `active_connections` is `dict[str, list[WebSocket]]` but actual code uses `dict[str, WebSocket]`. Adapted `send_state_update()` to send to single ws.
+- Removed duplicate `send_state_update()` I initially added — TASK-004-002 had already added one.
+
+## Tests
+- 59 websocket + state_machine tests pass
+- py_compile passes on both changed files

@@ -37,3 +37,4 @@ class AgentResponse(BaseModel):
     current_state: str
     required_action: str
     session_status: str
+    instructions_html: str | None = None

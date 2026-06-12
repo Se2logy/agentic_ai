@@ -281,6 +281,70 @@ class TestFallbackAgentIntentDetection:
     def test_incidental_security_hold_is_select_option(self, agent):
         assert agent.detect_intent_regex("security hold", State.INCIDENTAL_PROTECTION_PENDING) == "select_option"
 
+    # ── Inflected agreement / decline forms (Bug 2) ──────────────
+
+    @pytest.mark.parametrize("state", [
+        State.PRIVACY_POLICY_PENDING,
+        State.HOUSE_RULES_PENDING,
+        State.RENTAL_AGREEMENT_PENDING,
+    ])
+    @pytest.mark.parametrize("message", [
+        "accepted",
+        "agreed",
+        "acknowledged",
+        "I accepted",
+        "I agreed",
+        "acknowledge",
+    ])
+    def test_fallback_agree_accepts_inflected_forms(self, agent, state, message):
+        """Inflected agree inputs (accepted, agreed, acknowledged, …)
+        must resolve to 'agree' in every agreement state."""
+        assert agent.detect_intent_regex(message, state) == "agree"
+
+    @pytest.mark.parametrize("state", [
+        State.PRIVACY_POLICY_PENDING,
+        State.HOUSE_RULES_PENDING,
+        State.RENTAL_AGREEMENT_PENDING,
+    ])
+    @pytest.mark.parametrize("message", [
+        "declined",
+        "refused",
+        "rejected",
+        "disagreed",
+        "I refuse",
+        "I decline",
+        "no thanks",
+        "nah",
+    ])
+    def test_fallback_decline_accepts_inflected_forms(self, agent, state, message):
+        """Inflected decline inputs (declined, refused, rejected, …)
+        must resolve to 'decline' in every agreement state."""
+        assert agent.detect_intent_regex(message, state) == "decline"
+
+    @pytest.mark.parametrize("message", [
+        "agree",
+        "accept",
+        "yes",
+        "ok",
+        "sure",
+        "confirmed",
+    ])
+    def test_fallback_still_recognizes_original_forms(self, agent, message):
+        """Original base forms (agree, accept, yes, ok, sure, confirmed)
+        must still resolve to 'agree'."""
+        assert agent.detect_intent_regex(message, State.PRIVACY_POLICY_PENDING) == "agree"
+
+    @pytest.mark.parametrize("message", [
+        "acceptable",
+        "exception",
+        "agreeable",
+    ])
+    def test_fallback_no_false_positives_on_partial_words(self, agent, message):
+        """Words that merely contain agree/accept as a substring
+        must NOT be detected as 'agree'."""
+        result = agent.detect_intent_regex(message, State.PRIVACY_POLICY_PENDING)
+        assert result != "agree"
+
 
 # ═══════════════════════════════════════════════════════════════════
 # Test: FallbackAgent — Response Generation
@@ -310,9 +374,9 @@ class TestFallbackAgentResponseGeneration:
         response = agent.generate_response("agree", State.RENTAL_AGREEMENT_PENDING)
         assert "Rental Agreement" in response
 
-    def test_info_verify_agree_response(self, agent):
-        response = agent.generate_response("agree", State.INFO_VERIFY_PENDING)
-        assert "confirmed" in response.lower() or "ID" in response
+    def test_info_verify_confirm_response(self, agent):
+        response = agent.generate_response("confirm", State.INFO_VERIFY_PENDING)
+        assert "confirmed" in response.lower() or "verification" in response.lower()
 
     def test_info_verify_provide_info_response(self, agent):
         response = agent.generate_response("provide_info", State.INFO_VERIFY_PENDING)

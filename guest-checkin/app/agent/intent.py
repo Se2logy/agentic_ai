@@ -35,8 +35,8 @@ Current state: {state}
 Required action: {required_action}
 
 Classify the following guest message into exactly one of these intents:
-- agree: Guest accepts/agrees to the current step
-- decline: Guest declines/rejects the current step
+- agree: Guest accepts, agrees, accepted, agreed, acknowledges, acknowledged, or confirms the current agreement
+- decline: Guest declines, declined, refuses, refused, rejects, rejected, disagrees, disagreed, or says no to the current agreement
 - confirm: Guest confirms their personal information is correct (used in INFO_VERIFY_PENDING)
 - verify_otp: Guest is providing a 6-digit OTP verification code (a numeric code like "123456")
 - upload_id: Guest confirms they have uploaded their ID document
@@ -47,6 +47,7 @@ Classify the following guest message into exactly one of these intents:
 - greeting: Guest is greeting the assistant
 - other: None of the above
 
+IMPORTANT: Recognize all word forms (e.g., "accepted", "agreed", "acknowledged" = agree; "declined", "refused", "rejected", "disagreed" = decline).
 IMPORTANT: If the guest message contains a 6-digit number (like "123456" or "456789"), classify it as "verify_otp", NOT "agree" or "confirm".
 
 Guest message: "{message}"

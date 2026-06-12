@@ -216,7 +216,9 @@
               '<p style="margin-top:16px;font-size:14px;color:#5f6368;">Returning to check-in chat...</p>';
             // Auto-redirect back to the chat after 2 seconds
             setTimeout(function() {
-              if (window.opener) {
+              if (typeof returnUrl === 'string' && returnUrl) {
+                window.location.href = returnUrl;
+              } else if (window.opener) {
                 window.close();
               } else {
                 window.history.back();
